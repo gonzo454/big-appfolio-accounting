@@ -105,8 +105,9 @@ function analyzeTransactions(txns) {
     if (gl.toLowerCase().includes('tenant improvements') && lineAmt > 5000)
       flags.push({ type: 'info', label: `Capital spend: ${vendor} ${fmtFull(lineAmt)}`, detail: `${prop} — ${remarks || gl}`, date });
     if (vendor.toLowerCase().includes('visa') || vendor.toLowerCase().includes('credit card')) {
-      if (checkId && !seenChecks.has(checkId)) {
-        seenChecks.add(checkId);
+      const dedupKey = checkId || `${vendor}|${date}|${checkAmt}`;
+      if (!seenChecks.has(dedupKey)) {
+        seenChecks.add(dedupKey);
         flags.push({ type: 'review', label: `CC statement payment: ${fmtFull(checkAmt)}`, detail: `${prop} — line items need detail review`, date });
       }
     }
