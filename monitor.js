@@ -54,15 +54,28 @@ async function getCheckRegister() {
   });
 }
 
+// Try to extract a line-item amount that is distinct from the check total.
+// AppFolio may use any of these field names depending on report version.
 function getLineAmount(t) {
-  const candidates = [t.amount, t.line_amount, t.gl_amount];
+  const candidates = [t.detail_amount, t.amount, t.line_amount, t.gl_amount, t.debit];
   for (const v of candidates) {
     if (v !== undefined && v !== null && v !== '') {
-      const n = parseFloat(v);
-      if (!isNaN(n)) return n;
+      const n = typeof v === 'string' ? parseFloat(v.replace(/,/g, '')) : parseFloat(v);
+      if (!isNaN(n) && n > 0) return n;
     }
   }
   return null;
+}
+
+// Build a grouping key for transactions that belong to the same check/payment.
+// Priority: check_id > check_number > composite key (vendor+date+amount).
+function getCheckKey(t, idx) {
+  if (t.check_id != null && t.check_id !== '') return `id_${t.check_id}`;
+  if (t.check_number != null && t.check_number !== '') return `num_${t.payee_name || ''}|${t.check_number}`;
+  // Composite fallback: group by vendor + date + payment_amount
+  // This catches multi-GL rows that share the same check but lack an explicit ID.
+  if (t.payment_amount && t.payee_name) return `comp_${t.payee_name}|${t.occurred_date || ''}|${t.payment_amount}`;
+  return `_standalone_${idx}`;
 }
 
 function analyzeTransactions(txns) {
@@ -70,27 +83,35 @@ function analyzeTransactions(txns) {
     return { totalDisbursed: 0, topProperties: [], topVendors: [], topVendorDetails: [], flags: [] };
   }
 
+  // --- Diagnostic logging ---
   const sample = txns[0];
-  console.log('Sample transaction fields:', Object.keys(sample).join(', '));
-  console.log('Sample values — amount:', sample.amount, 'payment_amount:', sample.payment_amount, 'check_id:', sample.check_id);
-
-  // Detect whether the API provides line-item amounts distinct from check totals
-  const hasLineAmounts = txns.some(t => {
-    const line = getLineAmount(t);
-    const check = parseFloat(t.payment_amount || 0);
-    return line !== null && check > 0 && Math.abs(line - check) > 0.01;
-  });
-  console.log('Line-item amounts available:', hasLineAmounts);
-
-  // Group rows by check_id
-  const checkGroups = new Map();
-  let standaloneIdx = 0;
+  const allFields = Object.keys(sample);
+  console.log('=== DIAGNOSTIC ===');
+  console.log('Total rows from API:', txns.length);
+  console.log('Fields available:', allFields.join(', '));
+  console.log('Sample row:', JSON.stringify(sample, null, 2));
+  // Log a few rows from a multi-line vendor if present
+  const vendorCounts = {};
   txns.forEach(t => {
-    const key = t.check_id != null ? String(t.check_id) : `_standalone_${standaloneIdx++}`;
+    const v = t.payee_name || 'Unknown';
+    vendorCounts[v] = (vendorCounts[v] || 0) + 1;
+  });
+  const multiLineVendor = Object.entries(vendorCounts).find(([, c]) => c > 3);
+  if (multiLineVendor) {
+    const rows = txns.filter(t => t.payee_name === multiLineVendor[0]).slice(0, 3);
+    console.log(`Sample rows for "${multiLineVendor[0]}" (${multiLineVendor[1]} total):`);
+    rows.forEach((r, i) => console.log(`  Row ${i}:`, JSON.stringify(r)));
+  }
+  console.log('=== END DIAGNOSTIC ===');
+
+  // Group rows by check key
+  const checkGroups = new Map();
+  txns.forEach((t, idx) => {
+    const key = getCheckKey(t, idx);
     if (!checkGroups.has(key)) checkGroups.set(key, []);
     checkGroups.get(key).push(t);
   });
-  console.log(`${txns.length} rows → ${checkGroups.size} unique checks`);
+  console.log(`${txns.length} rows → ${checkGroups.size} unique checks/payments`);
 
   const byProperty = {};
   const byVendor = {};
@@ -99,11 +120,16 @@ function analyzeTransactions(txns) {
   const seenFlags = new Set();
   let totalDisbursed = 0;
 
-  for (const [checkId, lines] of checkGroups) {
+  for (const [checkKey, lines] of checkGroups) {
     const first = lines[0];
-    const checkAmt = parseFloat(first.payment_amount || 0) || getLineAmount(first) || 0;
+    const checkAmt = parseFloat(String(first.payment_amount || '0').replace(/,/g, '')) || 0;
     const vendor = first.payee_name || 'Unknown';
     const date = first.occurred_date || '';
+
+    // --- Per-check line-amount detection ---
+    // Check if THIS check group has real line-item amounts (distinct from check total).
+    const lineAmts = lines.map(l => getLineAmount(l));
+    const hasRealLineAmts = lines.length > 1 && lineAmts.some(a => a !== null && Math.abs(a - checkAmt) > 0.01);
 
     // Total disbursed — each check counted once
     totalDisbursed += checkAmt;
@@ -111,17 +137,18 @@ function analyzeTransactions(txns) {
     // Vendor total — each check counted once
     byVendor[vendor] = (byVendor[vendor] || 0) + checkAmt;
 
-    if (hasLineAmounts) {
-      // Real line-item amounts — aggregate per-line
-      lines.forEach(t => {
-        const lineAmt = getLineAmount(t) || parseFloat(t.payment_amount || 0);
+    if (!vendorDetail[vendor]) vendorDetail[vendor] = {};
+
+    if (hasRealLineAmts) {
+      // This check has real per-line amounts — show individual GL breakdown
+      lines.forEach((t, i) => {
+        const lineAmt = lineAmts[i] || checkAmt;
         const prop = t.property_name || 'Unknown';
         const gl = t.gl_account_name || 'Uncategorized';
         const remarks = t.remarks || '';
 
         byProperty[prop] = (byProperty[prop] || 0) + lineAmt;
 
-        if (!vendorDetail[vendor]) vendorDetail[vendor] = {};
         if (!vendorDetail[vendor][gl]) vendorDetail[vendor][gl] = { total: 0, properties: {} };
         vendorDetail[vendor][gl].total += lineAmt;
         vendorDetail[vendor][gl].properties[prop] = (vendorDetail[vendor][gl].properties[prop] || 0) + lineAmt;
@@ -129,42 +156,31 @@ function analyzeTransactions(txns) {
         addLineFlags(flags, seenFlags, lineAmt, prop, vendor, gl, date, remarks);
       });
     } else {
-      // No line-item amounts — only check totals available.
-      // Attribute check to its properties; show one entry per check in vendor detail.
+      // No real line amounts for this check — consolidate to one entry.
+      // Distribute property spend evenly across unique properties.
       const props = [...new Set(lines.map(l => l.property_name || 'Unknown'))];
       const perProp = checkAmt / props.length;
       props.forEach(p => { byProperty[p] = (byProperty[p] || 0) + perProp; });
 
-      // Vendor detail: show unique GL accounts but consolidate to check level
+      // Vendor detail: one consolidated entry per check
       const glAccounts = [...new Set(lines.map(l => l.gl_account_name || 'Uncategorized'))];
-      if (!vendorDetail[vendor]) vendorDetail[vendor] = {};
-      if (lines.length === 1 || glAccounts.length === 1) {
-        const gl = glAccounts[0];
-        if (!vendorDetail[vendor][gl]) vendorDetail[vendor][gl] = { total: 0, properties: {} };
-        vendorDetail[vendor][gl].total += checkAmt;
-        props.forEach(p => {
-          vendorDetail[vendor][gl].properties[p] = (vendorDetail[vendor][gl].properties[p] || 0) + perProp;
-        });
-      } else {
-        // Multi-GL check without line amounts — show as single consolidated entry
-        const gl = glAccounts.join(', ');
-        if (!vendorDetail[vendor][gl]) vendorDetail[vendor][gl] = { total: 0, properties: {} };
-        vendorDetail[vendor][gl].total += checkAmt;
-        props.forEach(p => {
-          vendorDetail[vendor][gl].properties[p] = (vendorDetail[vendor][gl].properties[p] || 0) + perProp;
-        });
-      }
+      const gl = glAccounts.length === 1 ? glAccounts[0] : `${glAccounts[0]} + ${glAccounts.length - 1} more`;
+      if (!vendorDetail[vendor][gl]) vendorDetail[vendor][gl] = { total: 0, properties: {} };
+      vendorDetail[vendor][gl].total += checkAmt;
+      props.forEach(p => {
+        vendorDetail[vendor][gl].properties[p] = (vendorDetail[vendor][gl].properties[p] || 0) + perProp;
+      });
 
-      // Flags from the check level
-      const gl = first.gl_account_name || '';
+      // Flags from check level
+      const firstGl = first.gl_account_name || '';
       const prop = first.property_name || 'Unknown';
       const remarks = first.remarks || '';
-      addLineFlags(flags, seenFlags, checkAmt, prop, vendor, gl, date, remarks);
+      addLineFlags(flags, seenFlags, checkAmt, prop, vendor, firstGl, date, remarks);
     }
 
     // CC statement flag — always at check level, deduped
     if (vendor.toLowerCase().includes('visa') || vendor.toLowerCase().includes('credit card')) {
-      const flagKey = checkId.startsWith('_standalone_') ? `${vendor}|${date}|${checkAmt}` : checkId;
+      const flagKey = checkKey.startsWith('_standalone_') ? `${vendor}|${date}|${checkAmt}` : checkKey;
       if (!seenFlags.has(`cc_${flagKey}`)) {
         seenFlags.add(`cc_${flagKey}`);
         flags.push({ type: 'review', label: `CC statement payment: ${fmtFull(checkAmt)}`, detail: `${(first.property_name || 'Unknown')} — line items need detail review`, date });
