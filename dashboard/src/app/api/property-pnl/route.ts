@@ -8,6 +8,11 @@ interface IncomeRow {
   year_to_date?: string;
 }
 
+interface AccountTotalsRow {
+  property_id?: number;
+  property_name?: string;
+}
+
 function classifyAccount(accountNumber: string): "income" | "expense" {
   const prefix = accountNumber.charAt(0);
   if (prefix === "4" || prefix === "5") return "income";
@@ -26,10 +31,25 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Look up property numeric ID from account_totals
+    const allProperties = await fetchReport<AccountTotalsRow>("account_totals", {
+      posted_on_from: from,
+      posted_on_to: to,
+    });
+    const match = allProperties.find(
+      (p) => p.property_name === propertyName
+    );
+    if (!match?.property_id) {
+      return Response.json(
+        { error: `Property "${propertyName}" not found` },
+        { status: 404 }
+      );
+    }
+
     const rows = await fetchReport<IncomeRow>("income_statement", {
       from_date: from,
       to_date: to,
-      filter_by_property_names: [propertyName],
+      properties: { properties_ids: [match.property_id] },
     });
 
     const column = period === "ytd" ? "year_to_date" : "month_to_date";
