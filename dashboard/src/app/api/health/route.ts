@@ -6,9 +6,9 @@ export async function GET(request: NextRequest) {
   const database = (process.env.APPFOLIO_DATABASE || "").trim();
 
   const envStatus = {
-    APPFOLIO_CLIENT_ID: clientId ? `set (${clientId.length} chars, starts: ${clientId.slice(0, 4)}...)` : "MISSING",
-    APPFOLIO_CLIENT_SECRET: clientSecret ? `set (${clientSecret.length} chars)` : "MISSING",
-    APPFOLIO_DATABASE: database || "MISSING",
+    APPFOLIO_CLIENT_ID: clientId ? "set" : "MISSING",
+    APPFOLIO_CLIENT_SECRET: clientSecret ? "set" : "MISSING",
+    APPFOLIO_DATABASE: database ? "set" : "MISSING",
   };
 
   // Attempt a minimal API call
