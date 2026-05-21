@@ -5,10 +5,22 @@ export async function GET(request: NextRequest) {
   const clientSecret = (process.env.APPFOLIO_CLIENT_SECRET || "").trim();
   const database = (process.env.APPFOLIO_DATABASE || "").trim();
 
+  // Validate format without exposing values
+  const isHex32 = (s: string) => /^[a-f0-9]{32}$/i.test(s);
   const envStatus = {
-    APPFOLIO_CLIENT_ID: clientId ? "set" : "MISSING",
-    APPFOLIO_CLIENT_SECRET: clientSecret ? "set" : "MISSING",
-    APPFOLIO_DATABASE: database ? "set" : "MISSING",
+    APPFOLIO_CLIENT_ID: clientId
+      ? isHex32(clientId)
+        ? `valid (32 hex chars)`
+        : `WRONG FORMAT (${clientId.length} chars, expected 32 hex)`
+      : "MISSING",
+    APPFOLIO_CLIENT_SECRET: clientSecret
+      ? isHex32(clientSecret)
+        ? `valid (32 hex chars)`
+        : `WRONG FORMAT (${clientSecret.length} chars, expected 32 hex)`
+      : "MISSING",
+    APPFOLIO_DATABASE: database
+      ? `set (${database.length} chars)`
+      : "MISSING",
   };
 
   // Attempt a minimal API call
