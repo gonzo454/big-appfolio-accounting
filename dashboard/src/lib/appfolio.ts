@@ -1,6 +1,6 @@
-const APPFOLIO_CLIENT_ID = process.env.APPFOLIO_CLIENT_ID!;
-const APPFOLIO_CLIENT_SECRET = process.env.APPFOLIO_CLIENT_SECRET!;
-const APPFOLIO_DATABASE = process.env.APPFOLIO_DATABASE!;
+const APPFOLIO_CLIENT_ID = (process.env.APPFOLIO_CLIENT_ID || "").trim();
+const APPFOLIO_CLIENT_SECRET = (process.env.APPFOLIO_CLIENT_SECRET || "").trim();
+const APPFOLIO_DATABASE = (process.env.APPFOLIO_DATABASE || "").trim();
 
 const cache = new Map<string, { data: unknown; expires: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
