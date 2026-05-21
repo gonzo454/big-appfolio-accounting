@@ -60,40 +60,54 @@ function analyzeTransactions(txns) {
   const vendorDetail = {};
   const flags = [];
   const seenChecks = new Set();
+  const disbursedChecks = new Set();
   let totalDisbursed = 0;
 
+  if (txns.length > 0) {
+    const sample = txns[0];
+    console.log('Sample transaction fields:', Object.keys(sample).join(', '));
+    console.log('Sample values — amount:', sample.amount, 'payment_amount:', sample.payment_amount, 'check_id:', sample.check_id);
+  }
+
   txns.forEach(t => {
-    const amt = parseFloat(t.payment_amount || 0);
+    const lineAmt = parseFloat(t.amount || t.payment_amount || 0);
+    const checkAmt = parseFloat(t.payment_amount || t.amount || 0);
+    const checkId = t.check_id || '';
     const prop = t.property_name || 'Unknown';
     const vendor = t.payee_name || 'Unknown';
     const gl = t.gl_account_name || 'Uncategorized';
     const date = t.occurred_date || '';
     const remarks = t.remarks || '';
 
-    totalDisbursed += amt;
-    byProperty[prop] = (byProperty[prop] || 0) + amt;
-    byVendor[vendor] = (byVendor[vendor] || 0) + amt;
+    if (checkId && !disbursedChecks.has(checkId)) {
+      disbursedChecks.add(checkId);
+      totalDisbursed += checkAmt;
+    } else if (!checkId) {
+      totalDisbursed += lineAmt;
+    }
+
+    byProperty[prop] = (byProperty[prop] || 0) + lineAmt;
+    byVendor[vendor] = (byVendor[vendor] || 0) + lineAmt;
 
     if (!vendorDetail[vendor]) vendorDetail[vendor] = {};
     if (!vendorDetail[vendor][gl]) vendorDetail[vendor][gl] = { total: 0, properties: {} };
-    vendorDetail[vendor][gl].total += amt;
-    vendorDetail[vendor][gl].properties[prop] = (vendorDetail[vendor][gl].properties[prop] || 0) + amt;
+    vendorDetail[vendor][gl].total += lineAmt;
+    vendorDetail[vendor][gl].properties[prop] = (vendorDetail[vendor][gl].properties[prop] || 0) + lineAmt;
 
-    if (vendor.includes('Baker Tilly') && amt > 2000)
-      flags.push({ type: 'review', label: `Baker Tilly: ${fmtFull(amt)}`, detail: `${prop} — ${remarks || gl}`, date });
-    if (gl.toLowerCase().includes('legal') && amt > 1000)
-      flags.push({ type: 'review', label: `Legal: ${vendor} ${fmtFull(amt)}`, detail: `${prop} — ${remarks || gl}`, date });
-    if (gl.toLowerCase().includes('franchise') && amt > 5000)
-      flags.push({ type: 'info', label: `Franchise fee: ${fmtFull(amt)}`, detail: `${prop} — ${vendor}`, date });
-    if ((gl.toLowerCase().includes('electricity') || gl.toLowerCase().includes('gas')) && amt > 10000)
-      flags.push({ type: 'review', label: `Large utility: ${vendor} ${fmtFull(amt)}`, detail: `${prop} — verify vs prior month`, date });
-    if (gl.toLowerCase().includes('tenant improvements') && amt > 5000)
-      flags.push({ type: 'info', label: `Capital spend: ${vendor} ${fmtFull(amt)}`, detail: `${prop} — ${remarks || gl}`, date });
+    if (vendor.includes('Baker Tilly') && lineAmt > 2000)
+      flags.push({ type: 'review', label: `Baker Tilly: ${fmtFull(lineAmt)}`, detail: `${prop} — ${remarks || gl}`, date });
+    if (gl.toLowerCase().includes('legal') && lineAmt > 1000)
+      flags.push({ type: 'review', label: `Legal: ${vendor} ${fmtFull(lineAmt)}`, detail: `${prop} — ${remarks || gl}`, date });
+    if (gl.toLowerCase().includes('franchise') && lineAmt > 5000)
+      flags.push({ type: 'info', label: `Franchise fee: ${fmtFull(lineAmt)}`, detail: `${prop} — ${vendor}`, date });
+    if ((gl.toLowerCase().includes('electricity') || gl.toLowerCase().includes('gas')) && lineAmt > 10000)
+      flags.push({ type: 'review', label: `Large utility: ${vendor} ${fmtFull(lineAmt)}`, detail: `${prop} — verify vs prior month`, date });
+    if (gl.toLowerCase().includes('tenant improvements') && lineAmt > 5000)
+      flags.push({ type: 'info', label: `Capital spend: ${vendor} ${fmtFull(lineAmt)}`, detail: `${prop} — ${remarks || gl}`, date });
     if (vendor.toLowerCase().includes('visa') || vendor.toLowerCase().includes('credit card')) {
-      const key = `${t.check_id}`;
-      if (!seenChecks.has(key)) {
-        seenChecks.add(key);
-        flags.push({ type: 'review', label: `CC statement payment: ${fmtFull(amt)}`, detail: `${prop} — line items need detail review`, date });
+      if (checkId && !seenChecks.has(checkId)) {
+        seenChecks.add(checkId);
+        flags.push({ type: 'review', label: `CC statement payment: ${fmtFull(checkAmt)}`, detail: `${prop} — line items need detail review`, date });
       }
     }
   });
