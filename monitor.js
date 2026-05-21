@@ -86,7 +86,7 @@ function analyzeTransactions(txns) {
   const checkGroups = new Map();
   let standaloneIdx = 0;
   txns.forEach(t => {
-    const key = t.check_id || `_standalone_${standaloneIdx++}`;
+    const key = t.check_id != null ? String(t.check_id) : `_standalone_${standaloneIdx++}`;
     if (!checkGroups.has(key)) checkGroups.set(key, []);
     checkGroups.get(key).push(t);
   });
