@@ -54,6 +54,15 @@ async function getCheckRegister() {
   });
 }
 
+async function getAccountTotals() {
+  return fetchReport('account_totals', {
+    posted_on_from: firstOfMonth(),
+    posted_on_to: today(),
+    accounting_basis: 'Cash',
+    paginate_results: false,
+  });
+}
+
 // Try to extract a line-item amount that is distinct from the check total.
 // AppFolio may use any of these field names depending on report version.
 function getLineAmount(t) {
@@ -202,6 +211,90 @@ function analyzeTransactions(txns) {
   return { totalDisbursed, topProperties, topVendors, topVendorDetails, flags };
 }
 
+// ---------------------------------------------------------------------------
+// P&L from Account Totals
+// ---------------------------------------------------------------------------
+
+// Standard AppFolio GL account type classification.
+// The account_totals response includes an account_type or similar field;
+// when missing we fall back to heuristic name matching.
+const INCOME_KEYWORDS = ['income', 'revenue', 'rent', 'parking', 'laundry income', 'other income', 'late fee', 'nsf fee', 'utility reimbursement', 'cam reimbursement'];
+const EXPENSE_KEYWORDS = ['expense', 'repair', 'maintenance', 'r & m', 'salary', 'wage', 'insurance', 'tax', 'utility', 'electric', 'gas', 'water', 'sewer', 'trash', 'management fee', 'legal', 'accounting', 'professional', 'office', 'supplies', 'janitorial', 'landscaping', 'advertising', 'marketing', 'travel', 'vehicle', 'telephone', 'internet', 'software', 'license', 'depreciation', 'amortization', 'interest', 'mortgage', 'bank', 'commission', 'franchise', 'permit', 'contract'];
+
+function classifyAccount(row) {
+  // Try explicit type field first
+  const type = (row.account_type || row.type || row.gl_account_type || '').toLowerCase();
+  if (type.includes('income') || type.includes('revenue')) return 'income';
+  if (type.includes('expense') || type.includes('cost')) return 'expense';
+
+  // Try account number convention (1xx = income, 5xx-9xx = expense)
+  const num = row.account_number || row.gl_account_number || row.number || '';
+  const prefix = parseInt(num, 10);
+  if (!isNaN(prefix)) {
+    if (prefix >= 100 && prefix < 200) return 'income';
+    if (prefix >= 400 || (prefix >= 200 && prefix < 300)) return 'expense';
+  }
+
+  // Fallback: keyword match on name
+  const name = (row.gl_account_name || row.account_name || row.name || '').toLowerCase();
+  if (INCOME_KEYWORDS.some(kw => name.includes(kw))) return 'income';
+  if (EXPENSE_KEYWORDS.some(kw => name.includes(kw))) return 'expense';
+
+  return 'other';
+}
+
+function parseAmount(v) {
+  if (v === undefined || v === null || v === '') return 0;
+  const n = typeof v === 'string' ? parseFloat(v.replace(/[,$]/g, '')) : parseFloat(v);
+  return isNaN(n) ? 0 : n;
+}
+
+function analyzePnL(rows) {
+  if (rows.length === 0) return null;
+
+  // Diagnostic
+  const sample = rows[0];
+  console.log('=== P&L DIAGNOSTIC ===');
+  console.log('Account totals rows:', rows.length);
+  console.log('Fields:', Object.keys(sample).join(', '));
+  console.log('Sample:', JSON.stringify(sample, null, 2));
+  console.log('=== END P&L DIAGNOSTIC ===');
+
+  const income = [];   // { name, amount }
+  const expenses = []; // { name, amount }
+  let totalIncome = 0;
+  let totalExpense = 0;
+
+  for (const row of rows) {
+    const name = row.gl_account_name || row.account_name || row.name || 'Unknown';
+    // account_totals may return total/amount/balance/net_amount
+    const amt = parseAmount(row.total || row.amount || row.balance || row.net_amount || row.debit || 0);
+    if (amt === 0) continue;
+
+    const cat = classifyAccount(row);
+    if (cat === 'income') {
+      const absAmt = Math.abs(amt);
+      income.push({ name, amount: absAmt });
+      totalIncome += absAmt;
+    } else if (cat === 'expense') {
+      const absAmt = Math.abs(amt);
+      expenses.push({ name, amount: absAmt });
+      totalExpense += absAmt;
+    }
+  }
+
+  income.sort((a, b) => b.amount - a.amount);
+  expenses.sort((a, b) => b.amount - a.amount);
+
+  return {
+    income,
+    expenses,
+    totalIncome,
+    totalExpense,
+    netIncome: totalIncome - totalExpense,
+  };
+}
+
 function addLineFlags(flags, seen, amt, prop, vendor, gl, date, remarks) {
   if (vendor.includes('Baker Tilly') && amt > 2000) {
     const key = `bt_${prop}_${amt}_${date}`;
@@ -225,7 +318,7 @@ function addLineFlags(flags, seen, amt, prop, vendor, gl, date, remarks) {
   }
 }
 
-function buildEmail(txns, reportDate) {
+function buildEmail(txns, reportDate, pnlData) {
   const { totalDisbursed, topProperties, topVendors, topVendorDetails, flags } = analyzeTransactions(txns);
 
   const propRows = topProperties.map(([name, amt]) => `
@@ -322,6 +415,7 @@ function buildEmail(txns, reportDate) {
     <table width="100%" cellpadding="0" cellspacing="0">${vendorRows}</table>
   </td></tr>
   ${vendorDetailRows}
+  ${pnlData ? buildPnLSection(pnlData) : ''}
   <tr><td style="height:16px;"></td></tr>
   <tr><td style="background:#F9FAFB;border-top:1px solid #E5E7EB;padding:16px 28px;border-radius:0 0 8px 8px;">
     <p style="margin:0;font-size:11px;color:#9CA3AF;">Generated by Metify · blackdeerig.appfolio.com · Confidential — do not forward</p>
@@ -329,6 +423,85 @@ function buildEmail(txns, reportDate) {
 </table>
 </td></tr></table>
 </body></html>`;
+}
+
+function buildPnLSection(pnl) {
+  const incomeRows = pnl.income.slice(0, 15).map(i => `
+      <tr>
+        <td style="padding:4px 12px 4px 16px;font-size:12px;color:#374151;border-bottom:1px solid #f3f4f6;">${i.name}</td>
+        <td style="padding:4px 0;font-size:12px;color:#065F46;text-align:right;border-bottom:1px solid #f3f4f6;">${fmtFull(i.amount)}</td>
+      </tr>`).join('');
+
+  const expenseRows = pnl.expenses.slice(0, 20).map(e => `
+      <tr>
+        <td style="padding:4px 12px 4px 16px;font-size:12px;color:#374151;border-bottom:1px solid #f3f4f6;">${e.name}</td>
+        <td style="padding:4px 0;font-size:12px;color:#991B1B;text-align:right;border-bottom:1px solid #f3f4f6;">${fmtFull(e.amount)}</td>
+      </tr>`).join('');
+
+  const niColor = pnl.netIncome >= 0 ? '#065F46' : '#991B1B';
+
+  return `
+  <tr><td style="padding:24px 28px 0;">
+    <h2 style="margin:0 0 16px;font-size:13px;font-weight:500;color:#6B7280;text-transform:uppercase;letter-spacing:0.06em;">Profit &amp; Loss — Month to Date</h2>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td style="width:33%;padding-right:8px;vertical-align:top;">
+          <div style="background:#ECFDF5;border-radius:6px;padding:14px 16px;">
+            <p style="margin:0;font-size:11px;color:#065F46;text-transform:uppercase;letter-spacing:0.06em;">Total Income</p>
+            <p style="margin:4px 0 0;font-size:20px;font-weight:500;color:#065F46;">${fmt(pnl.totalIncome)}</p>
+          </div>
+        </td>
+        <td style="width:33%;padding:0 4px;vertical-align:top;">
+          <div style="background:#FEF2F2;border-radius:6px;padding:14px 16px;">
+            <p style="margin:0;font-size:11px;color:#991B1B;text-transform:uppercase;letter-spacing:0.06em;">Total Expenses</p>
+            <p style="margin:4px 0 0;font-size:20px;font-weight:500;color:#991B1B;">${fmt(pnl.totalExpense)}</p>
+          </div>
+        </td>
+        <td style="width:33%;padding-left:8px;vertical-align:top;">
+          <div style="background:#F3F4F6;border-radius:6px;padding:14px 16px;">
+            <p style="margin:0;font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:0.06em;">Net Income</p>
+            <p style="margin:4px 0 0;font-size:20px;font-weight:500;color:${niColor};">${fmt(pnl.netIncome)}</p>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+  <tr><td style="padding:16px 28px 0;">
+    <h3 style="margin:0 0 8px;font-size:13px;font-weight:600;color:#065F46;">Income</h3>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td style="padding:4px 12px 4px 16px;font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #E5E7EB;">GL Account</td>
+        <td style="padding:4px 0;font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.04em;text-align:right;border-bottom:1px solid #E5E7EB;">Amount</td>
+      </tr>
+      ${incomeRows}
+      <tr>
+        <td style="padding:6px 12px 6px 16px;font-size:12px;font-weight:600;color:#065F46;">Total Income</td>
+        <td style="padding:6px 0;font-size:12px;font-weight:600;color:#065F46;text-align:right;">${fmtFull(pnl.totalIncome)}</td>
+      </tr>
+    </table>
+  </td></tr>
+  <tr><td style="padding:16px 28px 0;">
+    <h3 style="margin:0 0 8px;font-size:13px;font-weight:600;color:#991B1B;">Expenses</h3>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td style="padding:4px 12px 4px 16px;font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid #E5E7EB;">GL Account</td>
+        <td style="padding:4px 0;font-size:11px;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.04em;text-align:right;border-bottom:1px solid #E5E7EB;">Amount</td>
+      </tr>
+      ${expenseRows}
+      <tr>
+        <td style="padding:6px 12px 6px 16px;font-size:12px;font-weight:600;color:#991B1B;">Total Expenses</td>
+        <td style="padding:6px 0;font-size:12px;font-weight:600;color:#991B1B;text-align:right;">${fmtFull(pnl.totalExpense)}</td>
+      </tr>
+    </table>
+  </td></tr>
+  <tr><td style="padding:16px 28px 0;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr style="background:#F9FAFB;">
+        <td style="padding:10px 12px 10px 16px;font-size:14px;font-weight:700;color:${niColor};border-top:2px solid #E5E7EB;">Net Income</td>
+        <td style="padding:10px 0;font-size:14px;font-weight:700;color:${niColor};text-align:right;border-top:2px solid #E5E7EB;">${fmtFull(pnl.netIncome)}</td>
+      </tr>
+    </table>
+  </td></tr>`;
 }
 
 async function sendEmail(html, reportDate) {
@@ -353,9 +526,16 @@ async function run() {
   const reportDate = today();
   console.log(`[${new Date().toISOString()}] Running BIG monitor for ${reportDate}...`);
   try {
-    const txns = await getCheckRegister();
-    console.log(`Fetched ${txns.length} transactions`);
-    const html = buildEmail(txns, reportDate);
+    const [txns, acctRows] = await Promise.all([
+      getCheckRegister(),
+      getAccountTotals().catch(err => {
+        console.warn('account_totals fetch failed (P&L will be skipped):', err.message);
+        return [];
+      }),
+    ]);
+    console.log(`Fetched ${txns.length} transactions, ${acctRows.length} account totals`);
+    const pnlData = acctRows.length > 0 ? analyzePnL(acctRows) : null;
+    const html = buildEmail(txns, reportDate, pnlData);
     await sendEmail(html, reportDate);
     console.log('Done.');
   } catch (err) {
