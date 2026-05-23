@@ -19,6 +19,10 @@ function classifyAccount(accountNumber: string): "income" | "expense" {
   return "expense";
 }
 
+function sameMonth(a: string, b: string): boolean {
+  return a.slice(0, 7) === b.slice(0, 7);
+}
+
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const propertyName = params.get("property");
@@ -31,7 +35,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Look up property numeric ID from account_totals
     const allProperties = await fetchReport<AccountTotalsRow>("account_totals", {
       posted_on_from: from,
       posted_on_to: to,
@@ -47,12 +50,20 @@ export async function GET(request: NextRequest) {
     }
 
     const rows = await fetchReport<IncomeRow>("income_statement", {
-      from_date: from,
-      to_date: to,
+      posted_on_from: from,
+      posted_on_to: to,
       properties: { properties_ids: [match.property_id] },
     });
 
-    const column = period === "ytd" ? "year_to_date" : "month_to_date";
+    // Determine which column to read
+    let column: "month_to_date" | "year_to_date";
+    if (period === "ytd" || from.endsWith("-01-01")) {
+      column = "year_to_date";
+    } else if (sameMonth(from, to)) {
+      column = "month_to_date";
+    } else {
+      column = "year_to_date";
+    }
 
     let totalIncome = 0;
     let totalExpenses = 0;
