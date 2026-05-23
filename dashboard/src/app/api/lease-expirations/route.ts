@@ -2,8 +2,8 @@ import { fetchReport, parseAmount } from "@/lib/appfolio";
 
 interface RentRollRow {
   property_name?: string;
-  unit_name?: string;
-  tenant_name?: string;
+  unit?: string;
+  tenant?: string;
   status?: string;
   lease_from?: string;
   lease_to?: string;
@@ -27,8 +27,8 @@ export async function GET() {
         const daysUntil = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
         return {
           property: r.property_name || "",
-          unit: r.unit_name || "",
-          tenant: r.tenant_name || "",
+          unit: r.unit || "",
+          tenant: r.tenant || "",
           leaseEnd: r.lease_to || "",
           daysUntil,
           rent: parseAmount(r.rent),

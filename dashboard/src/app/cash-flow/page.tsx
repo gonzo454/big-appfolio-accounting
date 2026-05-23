@@ -164,7 +164,12 @@ function CashFlowSection({
   total: number;
   color: string;
 }) {
-  const borderColor = `border-l-${color}-500`;
+  const borderColors: Record<string, string> = {
+    blue: "border-l-blue-500",
+    purple: "border-l-purple-500",
+    emerald: "border-l-emerald-500",
+  };
+  const borderColor = borderColors[color] || "border-l-gray-500";
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden border-l-4 ${borderColor}`}>
       <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
