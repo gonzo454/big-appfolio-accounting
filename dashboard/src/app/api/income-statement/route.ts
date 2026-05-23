@@ -65,22 +65,6 @@ export async function GET(request: NextRequest) {
   const period = params.get("period") || "mtd";
 
   try {
-    if (sameMonth(from, to)) {
-      // Single month — use month_to_date directly
-      const rows = await fetchReport<IncomeRow>("income_statement", {
-        posted_on_from: from,
-        posted_on_to: to,
-      });
-      const { totalIncome, totalExpenses, accounts } = extractTotals(rows, "month_to_date");
-      return Response.json({
-        totalIncome,
-        totalExpenses,
-        netIncome: totalIncome - totalExpenses,
-        accounts,
-        period: { from, to, method: "month_to_date" },
-      });
-    }
-
     if (from.endsWith("-01-01") || period === "ytd") {
       // YTD range — use year_to_date directly
       const rows = await fetchReport<IncomeRow>("income_statement", {
@@ -94,6 +78,22 @@ export async function GET(request: NextRequest) {
         netIncome: totalIncome - totalExpenses,
         accounts,
         period: { from, to, method: "year_to_date" },
+      });
+    }
+
+    if (sameMonth(from, to)) {
+      // Single month — use month_to_date directly
+      const rows = await fetchReport<IncomeRow>("income_statement", {
+        posted_on_from: from,
+        posted_on_to: to,
+      });
+      const { totalIncome, totalExpenses, accounts } = extractTotals(rows, "month_to_date");
+      return Response.json({
+        totalIncome,
+        totalExpenses,
+        netIncome: totalIncome - totalExpenses,
+        accounts,
+        period: { from, to, method: "month_to_date" },
       });
     }
 
