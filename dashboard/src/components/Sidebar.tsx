@@ -21,12 +21,10 @@ export function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 h-full w-64 bg-gray-900 text-white flex flex-col z-50">
-      <div className="p-6 border-b border-gray-700 flex items-center gap-3">
-        <Image src="/logo.png" alt="BIG Logo" width={40} height={40} className="rounded" />
-        <div>
-          <h1 className="text-lg font-bold">Blackdeer Investment Group</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Financial Dashboard</p>
-        </div>
+      <div className="p-6 border-b border-gray-700 flex flex-col items-center text-center">
+        <Image src="/logo.png" alt="BIG Logo" width={56} height={56} className="rounded-full mb-3" />
+        <h1 className="text-base font-bold leading-tight">Blackdeer<br />Investment Group</h1>
+        <p className="text-xs text-gray-400 mt-1">Financial Dashboard</p>
       </div>
       <nav className="flex-1 overflow-y-auto p-4 space-y-1">
         {nav.map((item) => {
