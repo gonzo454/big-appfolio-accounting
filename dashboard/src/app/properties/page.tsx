@@ -33,7 +33,7 @@ function PropertiesContent() {
 
   if (selectedProperty) {
     const propertyTxns = data.transactions.filter(
-      (t) => t.property_name === selectedProperty
+      (t) => (t.property_name || "Unknown") === selectedProperty
     );
     const totalSpend = data.byProperty[selectedProperty] || 0;
 

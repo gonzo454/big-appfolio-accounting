@@ -1,21 +1,10 @@
+import { unstable_cache } from "next/cache";
+
 const APPFOLIO_CLIENT_ID = process.env.APPFOLIO_CLIENT_ID!;
 const APPFOLIO_CLIENT_SECRET = process.env.APPFOLIO_CLIENT_SECRET!;
 const APPFOLIO_DATABASE = process.env.APPFOLIO_DATABASE!;
 
-const RATE_LIMIT_DELAY = 2200; // 7 requests per 15s = ~2.14s between requests
-let lastRequestTime = 0;
-
-async function rateLimitedFetch(url: string, options: RequestInit) {
-  const now = Date.now();
-  const elapsed = now - lastRequestTime;
-  if (elapsed < RATE_LIMIT_DELAY) {
-    await new Promise((r) => setTimeout(r, RATE_LIMIT_DELAY - elapsed));
-  }
-  lastRequestTime = Date.now();
-  return fetch(url, options);
-}
-
-export async function fetchReport(
+async function fetchReportRaw(
   reportName: string,
   body: Record<string, string> = {}
 ) {
@@ -24,14 +13,13 @@ export async function fetchReport(
   ).toString("base64");
   const url = `https://${APPFOLIO_DATABASE}.appfolio.com/api/v2/reports/${reportName}.json`;
 
-  const res = await rateLimitedFetch(url, {
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Basic ${credentials}`,
     },
     body: JSON.stringify(body),
-    next: { revalidate: 300 }, // cache for 5 minutes
   });
 
   if (!res.ok) {
@@ -91,14 +79,22 @@ export interface AnalyzedData {
   dateRange: { from: string; to: string };
 }
 
+const getCachedCheckRegister = unstable_cache(
+  async (fromDate: string, toDate: string) => {
+    return fetchReportRaw("check_register_detail", {
+      from_date: fromDate,
+      to_date: toDate,
+    });
+  },
+  ["appfolio-check-register"],
+  { revalidate: 300 }
+);
+
 export async function getCheckRegister(
   period: "mtd" | "ytd" = "mtd"
 ): Promise<Transaction[]> {
   const fromDate = period === "ytd" ? firstOfYear() : firstOfMonth();
-  return fetchReport("check_register_detail", {
-    from_date: fromDate,
-    to_date: today(),
-  });
+  return getCachedCheckRegister(fromDate, today());
 }
 
 export function analyzeTransactions(

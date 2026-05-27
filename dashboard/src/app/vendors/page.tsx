@@ -40,7 +40,7 @@ function VendorsContent() {
       .sort((a, b) => b[1] - a[1]);
 
     const vendorTxns = data.transactions.filter(
-      (t) => t.payee_name === selectedVendor
+      (t) => (t.payee_name || "Unknown") === selectedVendor
     );
 
     return (
