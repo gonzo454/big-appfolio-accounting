@@ -127,7 +127,7 @@ export default function BudgetVsActualsPage() {
   // Threshold warnings
   const noiWarning = noi < 0;
   const opexWarning = opexRatio > 70;
-  const dscrWarning = dscr > 0 && dscr < 1.25;
+  const dscrWarning = debtServiceYtd > 0 && dscr < 1.25;
 
   return (
     <div className="space-y-6">
@@ -216,12 +216,12 @@ export default function BudgetVsActualsPage() {
             />
             <KpiCard
               label="Debt Coverage"
-              value={dscr > 0 ? dscr.toFixed(2) + "x" : "N/A"}
-              sub={dscrLY > 0 ? `LY: ${dscrLY.toFixed(2)}x` : ""}
-              change={dscr > 0 && dscrLY > 0 ? (dscr - dscrLY >= 0 ? "+" : "") + (dscr - dscrLY).toFixed(2) + "x" : ""}
+              value={debtServiceYtd > 0 ? dscr.toFixed(2) + "x" : "N/A"}
+              sub={debtServiceLY > 0 ? `LY: ${dscrLY.toFixed(2)}x` : ""}
+              change={debtServiceYtd > 0 && debtServiceLY > 0 ? (dscr - dscrLY >= 0 ? "+" : "") + (dscr - dscrLY).toFixed(2) + "x" : ""}
               positive={dscr >= dscrLY}
               warning={dscrWarning}
-              warningText={dscrWarning ? "Below 1.25x lender minimum" : undefined}
+              warningText={dscrWarning ? (dscr < 0 ? "Negative — NOI does not cover debt" : "Below 1.25x lender minimum") : undefined}
             />
             <KpiCard
               label="Income YoY"
