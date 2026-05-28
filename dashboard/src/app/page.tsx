@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { ProfitGauge } from "@/components/ProfitGauge";
 import { DateRangePicker } from "@/components/DateRangePicker";
+import { ExportButtons } from "@/components/ExportButtons";
 
 interface Property {
   name: string;
@@ -88,6 +89,24 @@ export default function ExecutiveDashboard() {
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
+        {pnl && (
+          <ExportButtons
+            fileName="Executive_Dashboard"
+            title="Executive Dashboard Summary"
+            headers={["Property", "Net Income"]}
+            rows={[
+              ["TOTAL INCOME", `$${(pnl.totalIncome || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+              ["TOTAL EXPENSES", `$${(pnl.totalExpenses || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+              ["NET INCOME", `$${(pnl.netIncome || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+              ["OCCUPANCY", `${occupancyRate}% (${rent?.occupied || 0}/${rent?.totalUnits || 0} units)`],
+              ["", ""],
+              ...properties.sort((a, b) => b.netAmount - a.netAmount).map((p) => [
+                p.name,
+                `$${p.netAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+              ]),
+            ]}
+          />
+        )}
         <div className="ml-auto">
           <DateRangePicker onRangeChange={handleRangeChange} />
         </div>
