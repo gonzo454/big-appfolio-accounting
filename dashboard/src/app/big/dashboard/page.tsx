@@ -52,7 +52,7 @@ export default function BigDashboardPage() {
   const [revenueAccounts, setRevenueAccounts] = useState<Account[]>([]);
   const [expenseAccounts, setExpenseAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
-  const [periodLabel, setPeriodLabel] = useState("YTD");
+  const [periodLabel, setPeriodLabel] = useState("MTD");
   const [dateFrom, setDateFrom] = useState<string | undefined>();
   const [dateTo, setDateTo] = useState<string | undefined>();
   const initialized = useRef(false);
@@ -83,7 +83,10 @@ export default function BigDashboardPage() {
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
-    fetchData();
+    const d = new Date();
+    const mtdFrom = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+    const mtdTo = d.toISOString().split("T")[0];
+    fetchData(mtdFrom, mtdTo, "mtd");
   }, [fetchData]);
 
   function handleRangeChange(from: string, to: string, period: string) {
