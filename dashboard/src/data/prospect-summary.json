@@ -1,0 +1,133 @@
+{
+  "totalOwners": 5654,
+  "totalAssessedValue": 19125845600.0,
+  "hotLeads": 3221,
+  "outOfState": 658,
+  "greaterWI": 583,
+  "priorityCounts": {
+    "A+": 732,
+    "A": 2489,
+    "B": 1721,
+    "C": 648,
+    "D": 64
+  },
+  "propertyTypeCounts": {
+    "Commercial (Unclassified)": 3397,
+    "Industrial/Flex": 873,
+    "Office/Mixed-Use": 403,
+    "Office": 389,
+    "Retail": 311,
+    "Self-Storage": 63,
+    "Office/Flex": 63,
+    "Hospitality": 49,
+    "Industrial": 27,
+    "Food Service": 25,
+    "Automotive": 21,
+    "Special Purpose": 17,
+    "Medical/Professional": 9,
+    "Trades/Construction": 4,
+    "Mixed-Use": 3
+  },
+  "proximityCounts": {
+    "Dane County Local": 3359,
+    "On-Site": 939,
+    "Out-of-State": 658,
+    "Greater Wisconsin": 583,
+    "Metro Area": 114,
+    "Unknown": 1
+  },
+  "municipalityCounts": {
+    "CITY OF MADISON": 2765,
+    "CITY OF SUN PRAIRIE": 398,
+    "CITY OF MIDDLETON": 305,
+    "CITY OF FITCHBURG": 299,
+    "CITY OF VERONA": 210,
+    "CITY OF MONONA": 184,
+    "CITY OF STOUGHTON": 166,
+    "VILLAGE OF DEFOREST": 145,
+    "VILLAGE OF WAUNAKEE": 140,
+    "VILLAGE OF MOUNT HOREB": 130,
+    "VILLAGE OF MCFARLAND": 116,
+    "VILLAGE OF OREGON": 94,
+    "VILLAGE OF COTTAGE GROVE": 76,
+    "TOWN OF BURKE": 67,
+    "VILLAGE OF WINDSOR": 52
+  },
+  "typeValueStats": {
+    "Commercial (Unclassified)": {
+      "avg": 1721336.8266117163,
+      "total": 5847381200.0,
+      "count": 3397
+    },
+    "Industrial/Flex": {
+      "avg": 8243182.474226804,
+      "total": 7196298300.0,
+      "count": 873
+    },
+    "Retail": {
+      "avg": 2322331.511254019,
+      "total": 722245100.0,
+      "count": 311
+    },
+    "Food Service": {
+      "avg": 1431504.0,
+      "total": 35787600.0,
+      "count": 25
+    },
+    "Office": {
+      "avg": 2973480.205655527,
+      "total": 1156683800.0,
+      "count": 389
+    },
+    "Industrial": {
+      "avg": 5260400.0,
+      "total": 142030800.0,
+      "count": 27
+    },
+    "Automotive": {
+      "avg": 1579895.238095238,
+      "total": 33177800.0,
+      "count": 21
+    },
+    "Hospitality": {
+      "avg": 6652538.775510204,
+      "total": 325974400.0,
+      "count": 49
+    },
+    "Self-Storage": {
+      "avg": 2087307.9365079366,
+      "total": 131500400.0,
+      "count": 63
+    },
+    "Office/Mixed-Use": {
+      "avg": 8297104.962779156,
+      "total": 3343733300.0,
+      "count": 403
+    },
+    "Office/Flex": {
+      "avg": 1456131.746031746,
+      "total": 91736300.0,
+      "count": 63
+    },
+    "Special Purpose": {
+      "avg": 1990552.9411764706,
+      "total": 33839400.0,
+      "count": 17
+    },
+    "Mixed-Use": {
+      "avg": 1857833.3333333333,
+      "total": 5573500.0,
+      "count": 3
+    },
+    "Medical/Professional": {
+      "avg": 6423811.111111111,
+      "total": 57814300.0,
+      "count": 9
+    },
+    "Trades/Construction": {
+      "avg": 517350.0,
+      "total": 2069400.0,
+      "count": 4
+    }
+  }
+}
