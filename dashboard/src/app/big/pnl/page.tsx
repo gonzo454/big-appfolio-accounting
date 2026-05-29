@@ -121,7 +121,6 @@ export default function BigPnlPage() {
           />
           <button
             onClick={() => {
-              initialized.current = false;
               load();
             }}
             className="bg-blue-600 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-700"
@@ -252,6 +251,7 @@ export default function BigPnlPage() {
                   </td>
                 </tr>
                 {expenseAccounts
+                  .slice()
                   .sort((a, b) => Math.abs(b.ytd) - Math.abs(a.ytd))
                   .map((a) => {
                     const absYtd = Math.abs(a.ytd);
@@ -358,13 +358,11 @@ export default function BigPnlPage() {
                         : "text-red-700"
                     }`}
                   >
-                    {fmt(
-                      revenueAccounts.reduce((s, a) => s + a.mtd, 0) -
-                        expenseAccounts.reduce(
-                          (s, a) => s + Math.abs(a.mtd),
-                          0
-                        )
-                    )}
+                    {(() => {
+                      const netMtd = revenueAccounts.reduce((s, a) => s + a.mtd, 0) -
+                        expenseAccounts.reduce((s, a) => s + Math.abs(a.mtd), 0);
+                      return (netMtd < 0 ? "-" : "") + fmt(netMtd);
+                    })()}
                   </td>
                   <td
                     className={`px-4 py-3 text-right font-mono ${

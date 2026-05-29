@@ -293,6 +293,7 @@ export default function BigDashboardPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                   {expenseAccounts
+                    .slice()
                     .sort(
                       (a, b) => Math.abs(b.ytd) - Math.abs(a.ytd)
                     )
