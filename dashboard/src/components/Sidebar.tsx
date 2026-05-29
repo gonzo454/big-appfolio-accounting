@@ -3,8 +3,15 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
+import { logout } from "@/app/actions/auth";
 
-const nav = [
+interface SessionInfo {
+  name: string;
+  role: string;
+}
+
+const financialNav = [
   { href: "/", label: "Executive Dashboard", icon: "📊" },
   { href: "/properties", label: "Properties", icon: "🏢" },
   { href: "/financials", label: "Financial Reports", icon: "💰" },
@@ -15,18 +22,48 @@ const nav = [
   { href: "/banking", label: "Banking", icon: "🏦" },
 ];
 
+const prospectNav = [
+  { href: "/prospects", label: "Prospect Dashboard", icon: "🎯" },
+  { href: "/prospects/search", label: "Search Prospects", icon: "🔍" },
+];
+
 export function Sidebar() {
   const pathname = usePathname();
+  const [session, setSession] = useState<SessionInfo | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setSession)
+      .catch(() => setSession(null));
+  }, []);
+
+  function handleLogout() {
+    startTransition(() => {
+      logout();
+    });
+  }
 
   return (
     <aside className="fixed left-0 top-0 h-full w-64 bg-gray-900 text-white flex flex-col z-50">
       <div className="p-3 border-b border-gray-700">
         <div className="bg-white rounded-lg p-3">
-          <Image src="/logo-big-text.png" alt="Blackdeer Investment Group" width={860} height={200} className="w-full h-auto" />
+          <Image
+            src="/logo-big-text.png"
+            alt="Blackdeer Investment Group"
+            width={860}
+            height={200}
+            className="w-full h-auto"
+          />
         </div>
       </div>
+
       <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-        {nav.map((item) => {
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mb-2">
+          Financials
+        </p>
+        {financialNav.map((item) => {
           const active = pathname === item.href;
           return (
             <Link
@@ -43,9 +80,50 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        <div className="my-4 border-t border-gray-700" />
+
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-4 mb-2">
+          Sales &amp; Marketing
+        </p>
+        {prospectNav.map((item) => {
+          const active =
+            pathname === item.href ||
+            (item.href !== "/prospects" && pathname.startsWith(item.href));
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                active
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
+              }`}
+            >
+              <span className="text-lg">{item.icon}</span>
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
-      <div className="p-4 border-t border-gray-700 text-xs text-gray-500">
-        Data refreshes every 5 min
+
+      <div className="p-4 border-t border-gray-700">
+        {session && (
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-sm font-medium text-white">{session.name}</p>
+              <p className="text-xs text-gray-400 capitalize">{session.role}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              disabled={isPending}
+              className="text-xs text-gray-400 hover:text-white transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
+        )}
+        <p className="text-xs text-gray-500">Data refreshes every 5 min</p>
       </div>
     </aside>
   );
