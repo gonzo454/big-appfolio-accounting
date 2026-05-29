@@ -79,79 +79,180 @@ function isBigExpense(accountNumber: string): boolean {
   return accountNumber in BIG_EXPENSE_ACCOUNTS;
 }
 
+function sameMonth(a: string, b: string): boolean {
+  return a.slice(0, 7) === b.slice(0, 7);
+}
+
+function dayBefore(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().split("T")[0];
+}
+
+interface AccountEntry {
+  name: string;
+  number: string;
+  amount: number;
+  lastYearAmount: number;
+}
+
+function extractBigAccounts(
+  rows: IncomeRow[],
+  column: "month_to_date" | "year_to_date"
+) {
+  const revenue: AccountEntry[] = [];
+  const expenses: AccountEntry[] = [];
+
+  for (const r of rows) {
+    const num = (r.account_number || "").trim();
+    const name = (r.account_name || "").trim();
+    if (!num || !name) continue;
+
+    const amount = parseAmount(r[column]);
+    const lastYearAmount = parseAmount(r.last_year_to_date);
+
+    if (isBigRevenue(num)) {
+      revenue.push({ name, number: num, amount, lastYearAmount });
+    } else if (isBigExpense(num)) {
+      expenses.push({ name, number: num, amount, lastYearAmount });
+    }
+  }
+
+  return { revenue, expenses };
+}
+
+function buildResponse(
+  revenue: AccountEntry[],
+  expenses: AccountEntry[],
+  from: string,
+  to: string,
+  method: string
+) {
+  const totalRevenue = revenue.reduce((s, a) => s + a.amount, 0);
+  const totalRevenueLY = revenue.reduce((s, a) => s + a.lastYearAmount, 0);
+  const totalExpenses = expenses.reduce((s, a) => s + Math.abs(a.amount), 0);
+  const totalExpensesLY = expenses.reduce(
+    (s, a) => s + Math.abs(a.lastYearAmount),
+    0
+  );
+  const netIncome = totalRevenue - totalExpenses;
+  const netIncomeLY = totalRevenueLY - totalExpensesLY;
+
+  const mgmtFees = revenue
+    .filter((a) => a.number.startsWith("5820-"))
+    .reduce((s, a) => s + a.amount, 0);
+  const commissions = revenue
+    .filter(
+      (a) => a.number.startsWith("5750-") || a.number.startsWith("5755-")
+    )
+    .reduce((s, a) => s + a.amount, 0);
+  const hotelStaffing = revenue
+    .filter((a) => a.number.startsWith("5875-"))
+    .reduce((s, a) => s + a.amount, 0);
+
+  const pctChange = (cur: number, prev: number) =>
+    prev !== 0 ? ((cur - prev) / Math.abs(prev)) * 100 : 0;
+
+  return Response.json({
+    summary: {
+      totalRevenue,
+      totalRevenueLY,
+      revenueChange: pctChange(totalRevenue, totalRevenueLY),
+      totalExpenses,
+      totalExpensesLY,
+      expenseChange: pctChange(totalExpenses, totalExpensesLY),
+      netIncome,
+      netIncomeLY,
+      netIncomeChange: pctChange(netIncome, netIncomeLY),
+      mgmtFees,
+      commissions,
+      hotelStaffing,
+    },
+    revenueAccounts: revenue
+      .filter((a) => a.amount !== 0 || a.lastYearAmount !== 0)
+      .map((a) => ({
+        name: a.name,
+        number: a.number,
+        amount: a.amount,
+        lastYearAmount: a.lastYearAmount,
+      })),
+    expenseAccounts: expenses
+      .filter((a) => a.amount !== 0 || a.lastYearAmount !== 0)
+      .map((a) => ({
+        name: a.name,
+        number: a.number,
+        amount: a.amount,
+        lastYearAmount: a.lastYearAmount,
+      })),
+    period: { from, to, method },
+  });
+}
+
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const from = params.get("from") || firstOfYear();
   const to = params.get("to") || today();
+  const period = params.get("period") || "ytd";
 
   try {
-    const rows = await fetchReport<IncomeRow>("income_statement", {
-      posted_on_from: from,
-      posted_on_to: to,
-    });
-
-    const revenueAccounts: {
-      name: string;
-      number: string;
-      mtd: number;
-      ytd: number;
-      lastYearYtd: number;
-    }[] = [];
-    const expenseAccounts: typeof revenueAccounts = [];
-
-    for (const r of rows) {
-      const num = (r.account_number || "").trim();
-      const name = (r.account_name || "").trim();
-      if (!num || !name) continue;
-
-      const mtd = parseAmount(r.month_to_date);
-      const ytd = parseAmount(r.year_to_date);
-      const lastYearYtd = parseAmount(r.last_year_to_date);
-
-      if (isBigRevenue(num)) {
-        revenueAccounts.push({ name, number: num, mtd, ytd, lastYearYtd });
-      } else if (isBigExpense(num)) {
-        expenseAccounts.push({ name, number: num, mtd, ytd, lastYearYtd });
-      }
+    // YTD — use year_to_date column directly
+    if (from.endsWith("-01-01") || period === "ytd") {
+      const rows = await fetchReport<IncomeRow>("income_statement", {
+        posted_on_from: from,
+        posted_on_to: to,
+      });
+      const { revenue, expenses } = extractBigAccounts(rows, "year_to_date");
+      return buildResponse(revenue, expenses, from, to, "year_to_date");
     }
 
-    const totalRevenue = revenueAccounts.reduce((s, a) => s + a.ytd, 0);
-    const totalRevenueLY = revenueAccounts.reduce((s, a) => s + a.lastYearYtd, 0);
-    const totalExpenses = expenseAccounts.reduce((s, a) => s + Math.abs(a.ytd), 0);
-    const totalExpensesLY = expenseAccounts.reduce((s, a) => s + Math.abs(a.lastYearYtd), 0);
-    const netIncome = totalRevenue - totalExpenses;
-    const netIncomeLY = totalRevenueLY - totalExpensesLY;
+    // MTD — single month, use month_to_date column
+    if (sameMonth(from, to)) {
+      const rows = await fetchReport<IncomeRow>("income_statement", {
+        posted_on_from: from,
+        posted_on_to: to,
+      });
+      const { revenue, expenses } = extractBigAccounts(rows, "month_to_date");
+      return buildResponse(revenue, expenses, from, to, "month_to_date");
+    }
 
-    // Key revenue categories
-    const mgmtFees = revenueAccounts
-      .filter((a) => a.number.startsWith("5820-"))
-      .reduce((s, a) => s + a.ytd, 0);
-    const commissions = revenueAccounts
-      .filter((a) => a.number.startsWith("5750-") || a.number.startsWith("5755-"))
-      .reduce((s, a) => s + a.ytd, 0);
-    const hotelStaffing = revenueAccounts
-      .filter((a) => a.number.startsWith("5875-"))
-      .reduce((s, a) => s + a.ytd, 0);
+    // QTD or custom multi-month — compute via YTD subtraction
+    const beforeFrom = dayBefore(from);
+    const [endRows, startRows] = await Promise.all([
+      fetchReport<IncomeRow>(
+        "income_statement",
+        { posted_on_from: from, posted_on_to: to },
+        true
+      ),
+      fetchReport<IncomeRow>(
+        "income_statement",
+        {
+          posted_on_from: beforeFrom.slice(0, 8) + "01",
+          posted_on_to: beforeFrom,
+        },
+        true
+      ),
+    ]);
 
-    return Response.json({
-      summary: {
-        totalRevenue,
-        totalRevenueLY,
-        revenueChange: totalRevenueLY !== 0 ? ((totalRevenue - totalRevenueLY) / Math.abs(totalRevenueLY)) * 100 : 0,
-        totalExpenses,
-        totalExpensesLY,
-        expenseChange: totalExpensesLY !== 0 ? ((totalExpenses - totalExpensesLY) / Math.abs(totalExpensesLY)) * 100 : 0,
-        netIncome,
-        netIncomeLY,
-        netIncomeChange: netIncomeLY !== 0 ? ((netIncome - netIncomeLY) / Math.abs(netIncomeLY)) * 100 : 0,
-        mgmtFees,
-        commissions,
-        hotelStaffing,
-      },
-      revenueAccounts: revenueAccounts.filter((a) => a.ytd !== 0 || a.lastYearYtd !== 0),
-      expenseAccounts: expenseAccounts.filter((a) => a.ytd !== 0 || a.lastYearYtd !== 0),
-      period: { from, to },
-    });
+    const end = extractBigAccounts(endRows, "year_to_date");
+    const start = extractBigAccounts(startRows, "year_to_date");
+
+    const startRevMap = new Map(
+      start.revenue.map((a) => [a.number, a.amount])
+    );
+    const startExpMap = new Map(
+      start.expenses.map((a) => [a.number, a.amount])
+    );
+
+    const revenue = end.revenue.map((a) => ({
+      ...a,
+      amount: a.amount - (startRevMap.get(a.number) || 0),
+    }));
+    const expenses = end.expenses.map((a) => ({
+      ...a,
+      amount: a.amount - (startExpMap.get(a.number) || 0),
+    }));
+
+    return buildResponse(revenue, expenses, from, to, "ytd_subtraction");
   } catch (err) {
     return Response.json(
       { error: err instanceof Error ? err.message : "Unknown error" },

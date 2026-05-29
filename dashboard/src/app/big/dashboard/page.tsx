@@ -22,9 +22,8 @@ interface Summary {
 interface Account {
   name: string;
   number: string;
-  mtd: number;
-  ytd: number;
-  lastYearYtd: number;
+  amount: number;
+  lastYearAmount: number;
 }
 
 const fmt = (n: number) =>
@@ -42,24 +41,29 @@ export default function BigDashboardPage() {
   const [revenueAccounts, setRevenueAccounts] = useState<Account[]>([]);
   const [expenseAccounts, setExpenseAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
+  const [periodLabel, setPeriodLabel] = useState("YTD");
   const initialized = useRef(false);
 
-  const fetchData = useCallback((from?: string, to?: string) => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (from) params.set("from", from);
-    if (to) params.set("to", to);
-    const qs = params.toString() ? `?${params.toString()}` : "";
-    fetch(`/api/big-management${qs}`)
-      .then((r) => r.json())
-      .then((d) => {
-        setSummary(d.summary || null);
-        setRevenueAccounts(d.revenueAccounts || []);
-        setExpenseAccounts(d.expenseAccounts || []);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  const fetchData = useCallback(
+    (from?: string, to?: string, period?: string) => {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      if (period) params.set("period", period);
+      const qs = params.toString() ? `?${params.toString()}` : "";
+      fetch(`/api/big-management${qs}`)
+        .then((r) => r.json())
+        .then((d) => {
+          setSummary(d.summary || null);
+          setRevenueAccounts(d.revenueAccounts || []);
+          setExpenseAccounts(d.expenseAccounts || []);
+        })
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    },
+    []
+  );
 
   useEffect(() => {
     if (initialized.current) return;
@@ -67,8 +71,17 @@ export default function BigDashboardPage() {
     fetchData();
   }, [fetchData]);
 
-  function handleRangeChange(from: string, to: string) {
-    fetchData(from, to);
+  function handleRangeChange(from: string, to: string, period: string) {
+    setPeriodLabel(
+      period === "mtd"
+        ? "MTD"
+        : period === "qtd"
+        ? "QTD"
+        : period === "ytd"
+        ? "YTD"
+        : "Period"
+    );
+    fetchData(from, to, period);
   }
 
   const allAccounts = [...revenueAccounts, ...expenseAccounts];
@@ -89,13 +102,19 @@ export default function BigDashboardPage() {
           <ExportButtons
             fileName="BIG_Management"
             title="BIG Management Company — Financial Summary"
-            headers={["Account", "Number", "MTD", "YTD", "Last Year YTD"]}
+            headers={["Account", "Number", periodLabel, "Last Year", "YoY"]}
             rows={allAccounts.map((a) => [
               a.name,
               a.number,
-              fmt(a.mtd),
-              fmt(a.ytd),
-              fmt(a.lastYearYtd),
+              fmt(a.amount),
+              fmt(a.lastYearAmount),
+              a.lastYearAmount !== 0
+                ? pct(
+                    ((a.amount - a.lastYearAmount) /
+                      Math.abs(a.lastYearAmount)) *
+                      100
+                  )
+                : "—",
             ])}
           />
         )}
@@ -194,13 +213,10 @@ export default function BigDashboardPage() {
                       Number
                     </th>
                     <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                      MTD
+                      {periodLabel}
                     </th>
                     <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                      YTD
-                    </th>
-                    <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                      Last Year YTD
+                      Last Year
                     </th>
                     <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
                       YoY Change
@@ -210,8 +226,9 @@ export default function BigDashboardPage() {
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                   {revenueAccounts.map((a) => {
                     const yoy =
-                      a.lastYearYtd !== 0
-                        ? ((a.ytd - a.lastYearYtd) / Math.abs(a.lastYearYtd)) *
+                      a.lastYearAmount !== 0
+                        ? ((a.amount - a.lastYearAmount) /
+                            Math.abs(a.lastYearAmount)) *
                           100
                         : 0;
                     return (
@@ -226,13 +243,10 @@ export default function BigDashboardPage() {
                           {a.number}
                         </td>
                         <td className="px-4 py-2 text-right font-mono text-gray-900 dark:text-white">
-                          {fmt(a.mtd)}
-                        </td>
-                        <td className="px-4 py-2 text-right font-mono text-gray-900 dark:text-white">
-                          {fmt(a.ytd)}
+                          {fmt(a.amount)}
                         </td>
                         <td className="px-4 py-2 text-right font-mono text-gray-500">
-                          {fmt(a.lastYearYtd)}
+                          {fmt(a.lastYearAmount)}
                         </td>
                         <td
                           className={`px-4 py-2 text-right font-mono font-medium ${
@@ -243,7 +257,7 @@ export default function BigDashboardPage() {
                               : "text-gray-400"
                           }`}
                         >
-                          {a.lastYearYtd !== 0 ? pct(yoy) : "—"}
+                          {a.lastYearAmount !== 0 ? pct(yoy) : "—"}
                         </td>
                       </tr>
                     );
@@ -253,11 +267,6 @@ export default function BigDashboardPage() {
                       Total Revenue
                     </td>
                     <td className="px-4 py-2" />
-                    <td className="px-4 py-2 text-right font-mono text-gray-900 dark:text-white">
-                      {fmt(
-                        revenueAccounts.reduce((s, a) => s + a.mtd, 0)
-                      )}
-                    </td>
                     <td className="px-4 py-2 text-right font-mono text-gray-900 dark:text-white">
                       {fmt(summary.totalRevenue)}
                     </td>
@@ -279,7 +288,7 @@ export default function BigDashboardPage() {
             </div>
           </div>
 
-          {/* Top Expenses */}
+          {/* Expenses Table */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
             <div className="px-6 py-3 border-b border-gray-100 dark:border-gray-700 bg-red-50 dark:bg-red-900/20">
               <h3 className="font-semibold text-red-700">
@@ -297,13 +306,10 @@ export default function BigDashboardPage() {
                       Number
                     </th>
                     <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                      MTD
+                      {periodLabel}
                     </th>
                     <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                      YTD
-                    </th>
-                    <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                      Last Year YTD
+                      Last Year
                     </th>
                     <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
                       YoY Change
@@ -314,14 +320,14 @@ export default function BigDashboardPage() {
                   {expenseAccounts
                     .slice()
                     .sort(
-                      (a, b) => Math.abs(b.ytd) - Math.abs(a.ytd)
+                      (a, b) => Math.abs(b.amount) - Math.abs(a.amount)
                     )
                     .map((a) => {
-                      const absYtd = Math.abs(a.ytd);
-                      const absLY = Math.abs(a.lastYearYtd);
+                      const absAmt = Math.abs(a.amount);
+                      const absLY = Math.abs(a.lastYearAmount);
                       const yoy =
                         absLY !== 0
-                          ? ((absYtd - absLY) / absLY) * 100
+                          ? ((absAmt - absLY) / absLY) * 100
                           : 0;
                       return (
                         <tr
@@ -335,10 +341,7 @@ export default function BigDashboardPage() {
                             {a.number}
                           </td>
                           <td className="px-4 py-2 text-right font-mono text-red-600">
-                            {fmt(Math.abs(a.mtd))}
-                          </td>
-                          <td className="px-4 py-2 text-right font-mono text-red-600">
-                            {fmt(absYtd)}
+                            {fmt(absAmt)}
                           </td>
                           <td className="px-4 py-2 text-right font-mono text-gray-500">
                             {fmt(absLY)}
@@ -362,14 +365,6 @@ export default function BigDashboardPage() {
                       Total Expenses
                     </td>
                     <td className="px-4 py-2" />
-                    <td className="px-4 py-2 text-right font-mono text-red-600">
-                      {fmt(
-                        expenseAccounts.reduce(
-                          (s, a) => s + Math.abs(a.mtd),
-                          0
-                        )
-                      )}
-                    </td>
                     <td className="px-4 py-2 text-right font-mono text-red-600">
                       {fmt(summary.totalExpenses)}
                     </td>
@@ -400,7 +395,7 @@ export default function BigDashboardPage() {
             }`}
           >
             <p className="text-xs font-medium text-gray-500 uppercase">
-              BIG Management Net Income (YTD)
+              BIG Management Net Income ({periodLabel})
             </p>
             <p
               className={`font-bold mt-1 ${
