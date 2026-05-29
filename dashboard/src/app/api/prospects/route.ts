@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   const sortBy = searchParams.get("sortBy") || "score";
   const sortDir = searchParams.get("sortDir") || "desc";
   const page = parseInt(searchParams.get("page") || "1", 10);
-  const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 200);
+  const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 6000);
 
   let filtered = allProspects;
 
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
   }
 
   const sortKey = sortBy as keyof Prospect;
-  filtered.sort((a, b) => {
+  filtered = [...filtered].sort((a, b) => {
     const aVal = a[sortKey];
     const bVal = b[sortKey];
     if (typeof aVal === "number" && typeof bVal === "number") {
