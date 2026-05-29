@@ -9,7 +9,9 @@ interface IncomeRow {
   last_year_to_date?: string;
 }
 
-// BIG Management revenue accounts (suffix -00 indicates BIG entity)
+// BIG Management revenue accounts — fees BIG earns as a management company
+// Excludes hotel staffing (5875-*) and merchant fees (5873) — those belong
+// to the hotel LLC that Joe owns, not BIG's management operations
 const BIG_REVENUE_ACCOUNTS: Record<string, string> = {
   "5820-0000-00": "Management Fees",
   "5820-1000-00": "Asset Management Fees",
@@ -19,16 +21,6 @@ const BIG_REVENUE_ACCOUNTS: Record<string, string> = {
   "5720-1000-00": "Insurance Fee",
   "5700-0000-00": "Miscellaneous Income",
   "5700-0001-00": "Interest Income",
-  "5875-1010-00": "General Manager",
-  "5875-1020-00": "Operations Manager",
-  "5875-1050-00": "Breakfast Attendant",
-  "5875-1060-00": "Front Desk Agent",
-  "5875-1070-00": "Night Audit",
-  "5875-1085-00": "Hotel Housekeeping Manager",
-  "5875-1090-00": "Room Inspector",
-  "5875-1110-00": "Laundry Room Wages",
-  "5875-1120-00": "Public Area Attendant",
-  "5873-0000-00": "Merchant Account Fees",
 };
 
 // BIG Management's own operating expenses (whitelist approach)
@@ -146,8 +138,13 @@ function buildResponse(
       (a) => a.number.startsWith("5750-") || a.number.startsWith("5755-")
     )
     .reduce((s, a) => s + a.amount, 0);
-  const hotelStaffing = revenue
-    .filter((a) => a.number.startsWith("5875-"))
+  const otherRevenue = revenue
+    .filter(
+      (a) =>
+        !a.number.startsWith("5820-") &&
+        !a.number.startsWith("5750-") &&
+        !a.number.startsWith("5755-")
+    )
     .reduce((s, a) => s + a.amount, 0);
 
   const pctChange = (cur: number, prev: number) =>
@@ -166,7 +163,7 @@ function buildResponse(
       netIncomeChange: pctChange(netIncome, netIncomeLY),
       mgmtFees,
       commissions,
-      hotelStaffing,
+      otherRevenue,
     },
     revenueAccounts: revenue
       .filter((a) => a.amount !== 0 || a.lastYearAmount !== 0)

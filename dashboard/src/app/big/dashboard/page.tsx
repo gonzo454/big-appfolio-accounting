@@ -16,7 +16,7 @@ interface Summary {
   netIncomeChange: number;
   mgmtFees: number;
   commissions: number;
-  hotelStaffing: number;
+  otherRevenue: number;
 }
 
 interface Account {
@@ -184,13 +184,13 @@ export default function BigDashboardPage() {
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-5 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
               <p className="text-xs font-medium text-gray-500 uppercase">
-                Hotel Staffing Revenue
+                Other Revenue
               </p>
               <p
                 className="font-bold text-purple-600 mt-1"
                 style={{ fontSize: "clamp(1rem, 2.5vw, 1.5rem)" }}
               >
-                {fmt(summary.hotelStaffing)}
+                {fmt(summary.otherRevenue)}
               </p>
             </div>
           </div>
