@@ -31,28 +31,52 @@ const BIG_REVENUE_ACCOUNTS: Record<string, string> = {
   "5873-0000-00": "Merchant Account Fees",
 };
 
-// BIG Management expense accounts (suffix -00 indicates BIG entity)
-const BIG_EXPENSE_PREFIXES = [
-  "6304-", "6305-", "6306-", "6307-", "6308-",
-  "6425-", "7000-", "7210-", "7220-", "7230-", "7240-",
-  "7250-", "7260-", "7301-", "7302-", "7304-", "7310-",
-  "7400-", "7410-", "7415-", "7420-", "7430-", "7440-",
-  "7450-", "7470-", "7500-", "7505-", "7507-", "7510-",
-  "7516-", "7520-", "7605-", "7610-", "7620-", "7670-",
-  "7700-", "7800-", "7802-", "7905-",
-];
-
-function isBigAccount(accountNumber: string): boolean {
-  return accountNumber.endsWith("-00");
-}
+// BIG Management's own operating expenses (whitelist approach)
+// Only includes costs BIG bears as a management company — NOT property-level
+// expenses that building owners pay (hotel ops, property insurance, rent
+// payable, TA commissions, advertising, maintenance, utilities, etc.)
+const BIG_EXPENSE_ACCOUNTS: Record<string, string> = {
+  // Staff wages & payroll
+  "6304-0000-00": "Salaries & Wages",
+  "6304-0100-00": "Accounting Wages",
+  "6305-0000-00": "Salaries & Wages Mgmt",
+  "6305-0300-00": "Worker's Comp",
+  "6305-1000-00": "Life Insurance",
+  "6305-2000-00": "Medical Insurance",
+  "6305-2100-00": "Dental Insurance",
+  "6305-3200-00": "HSA Contribution",
+  "6305-3500-00": "Payroll Fees",
+  "6306-1000-00": "Payroll Taxes",
+  // Office & technology
+  "7000-2000-00": "Microsoft Office",
+  "7000-2300-00": "Google Apps",
+  "7400-0000-00": "Office Administrations",
+  "7420-0000-00": "Office Supplies - Non-recoverable",
+  "7420-2000-00": "Postage & Shipping",
+  "7430-0000-00": "Computer Repairs & Support",
+  "7430-0110-00": "IT Support - Rhyme",
+  "7440-0000-00": "Computer Software & License Fees",
+  // Professional services
+  "7302-0000-00": "Consulting Service",
+  "7605-0000-00": "Legal & Evictions",
+  "7610-0000-00": "Accounting & Tax Services",
+  "7610-1000-00": "AppFolio",
+  "7620-1000-00": "Permits & Licenses",
+  // Employee & misc
+  "7520-0000-00": "Employee Relations",
+  "7700-0000-00": "Miscellaneous Expense - Non-recoverable",
+  "7800-0000-00": "Bank Fees",
+  "7802-0000-00": "Late Fees",
+  // Management fee BIG pays out
+  "7301-0000-00": "Management Fee",
+};
 
 function isBigRevenue(accountNumber: string): boolean {
   return accountNumber in BIG_REVENUE_ACCOUNTS;
 }
 
 function isBigExpense(accountNumber: string): boolean {
-  if (!isBigAccount(accountNumber)) return false;
-  return BIG_EXPENSE_PREFIXES.some((p) => accountNumber.startsWith(p));
+  return accountNumber in BIG_EXPENSE_ACCOUNTS;
 }
 
 export async function GET(request: NextRequest) {
