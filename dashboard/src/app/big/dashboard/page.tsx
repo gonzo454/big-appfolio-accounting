@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { ExportButtons } from "@/components/ExportButtons";
+import { DateRangePicker } from "@/components/DateRangePicker";
 
 interface Summary {
   totalRevenue: number;
@@ -43,10 +44,13 @@ export default function BigDashboardPage() {
   const [loading, setLoading] = useState(true);
   const initialized = useRef(false);
 
-  useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
-    fetch("/api/big-management")
+  const fetchData = useCallback((from?: string, to?: string) => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    fetch(`/api/big-management${qs}`)
       .then((r) => r.json())
       .then((d) => {
         setSummary(d.summary || null);
@@ -56,6 +60,16 @@ export default function BigDashboardPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+    fetchData();
+  }, [fetchData]);
+
+  function handleRangeChange(from: string, to: string) {
+    fetchData(from, to);
+  }
 
   const allAccounts = [...revenueAccounts, ...expenseAccounts];
 
@@ -70,20 +84,25 @@ export default function BigDashboardPage() {
         </p>
       </div>
 
-      {allAccounts.length > 0 && (
-        <ExportButtons
-          fileName="BIG_Management"
-          title="BIG Management Company — Financial Summary"
-          headers={["Account", "Number", "MTD", "YTD", "Last Year YTD"]}
-          rows={allAccounts.map((a) => [
-            a.name,
-            a.number,
-            fmt(a.mtd),
-            fmt(a.ytd),
-            fmt(a.lastYearYtd),
-          ])}
-        />
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {allAccounts.length > 0 && (
+          <ExportButtons
+            fileName="BIG_Management"
+            title="BIG Management Company — Financial Summary"
+            headers={["Account", "Number", "MTD", "YTD", "Last Year YTD"]}
+            rows={allAccounts.map((a) => [
+              a.name,
+              a.number,
+              fmt(a.mtd),
+              fmt(a.ytd),
+              fmt(a.lastYearYtd),
+            ])}
+          />
+        )}
+        <div className="ml-auto">
+          <DateRangePicker onRangeChange={handleRangeChange} />
+        </div>
+      </div>
 
       {loading ? (
         <div className="text-center py-20 text-gray-500">Loading...</div>
