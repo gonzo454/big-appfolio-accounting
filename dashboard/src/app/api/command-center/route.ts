@@ -16,39 +16,91 @@ interface ArRow {
   total_amount?: string;
 }
 
-// BIG revenue accounts
-const BIG_REVENUE_PREFIXES = ["5820-0000", "5820-1000", "5750-0000", "5755-0000", "5760-0000"];
-// BIG expense prefixes (specific 6305 accounts to avoid double-counting hotel 6305-2450)
-const BIG_EXPENSE_PREFIXES = ["6304-0000", "6304-0100", "6305-0000", "6305-0300", "6305-1000", "6305-2000", "6305-2100", "6305-3200", "6305-3500", "6306-1000", "7000-", "7302-", "7400-", "7420-", "7430-", "7440-", "7520-", "7610-1000", "7620-", "7700-", "7800-", "7802-"];
-// Hotel revenue accounts
-const HOTEL_REVENUE_PREFIX = "4400-";
-// Hotel expense prefixes
-const HOTEL_EXPENSE_PREFIXES = ["5875-", "6210-", "6304-1000", "6305-2450", "6435-", "7304-", "7670-"];
+// --- Entity-scoped account classification per Opus spec ---
+// Note: AppFolio income_statement API returns portfolio-wide account totals.
+// True entity filtering requires GL-level data. These account sets approximate
+// entity separation until GL-based entity filtering is available.
+
+// BIG Management (Blackdeer entity) — revenue accounts
+const BIG_REVENUE_ACCOUNTS = [
+  "5820-0000", "5820-1000", // management + asset mgmt fees
+  "5750-0000", "5755-0000", // leasing + sale commissions
+  "5760-0000", "5700-0000", // IT services + misc income (Blackdeer)
+];
+
+// BIG Management — expense accounts (Blackdeer entity)
+const BIG_EXPENSE_ACCOUNTS = [
+  "6304-0000", "6304-0100", // salaries
+  "6305-0000", "6305-0300", "6305-1000", "6305-2000", "6305-2100", "6305-3200", "6305-3500", // benefits
+  "6306-1000", // payroll taxes
+  "7000-0000", // office expenses
+  "7302-0000", // consulting (Metify)
+  "7400-0000", "7410-0000", "7415-0000", "7420-0000", "7430-0000", "7440-0000", // rent/office
+  "7520-0000", // licenses
+  "7605-0000", // legal
+  "7610-0000", "7610-1000", // accounting
+  "7620-0000", // professional fees
+  "7700-0000", // insurance
+  "7800-0000", "7802-0000", // other
+];
+
+// Hotel (Badger Hotel Group entity) — revenue
+const HOTEL_REVENUE_ACCOUNTS = [
+  "4400-1000", "4400-2000", "4400-3000", "4400-4000",
+  "4400-5000", "4400-6000", "4400-7000", "4400-8000",
+  // EXCLUDE 4400-9000 per spec (suspense/clearing account)
+];
+
+// Hotel — expense accounts
+const HOTEL_EXPENSE_ACCOUNTS = [
+  "5875-1010", "5875-1020", "5875-1050", "5875-1060", "5875-1070",
+  "5875-1085", "5875-1090", "5875-1110", "5875-1120", // labor
+  "6304-1000", "6305-2450", // hotel wages/housekeeping
+  "6210-0100", "6210-0500", "6210-0600", "6210-0700", "6210-0800",
+  "6210-0810", "6210-0910", "6210-0930", "6210-1501", "6210-3210",
+  "6210-3220", "6210-3530", "6210-3941", "6210-9620", "6210-9640", // supplies/ops
+  "6435-0000", // telephone
+  "7304-0000", // franchise fees
+  "7670-0000", // TA commissions
+];
+
+// JRW Portfolio — accounts to EXCLUDE from operating expense
+const JRW_EXCLUDE_EXPENSE = ["6600-", "6650-"]; // depreciation, amortization
+// JRW — exclude from income
+const JRW_EXCLUDE_INCOME = ["5756-"]; // gain on sale (not operating)
+
+function matchesAny(num: string, accounts: string[]): boolean {
+  return accounts.some((a) => num.startsWith(a));
+}
 
 function isBigRevenue(num: string): boolean {
-  return BIG_REVENUE_PREFIXES.some((p) => num.startsWith(p));
+  return matchesAny(num, BIG_REVENUE_ACCOUNTS);
 }
 
 function isBigExpense(num: string): boolean {
-  return BIG_EXPENSE_PREFIXES.some((p) => num.startsWith(p));
+  return matchesAny(num, BIG_EXPENSE_ACCOUNTS);
 }
 
 function isHotelRevenue(num: string): boolean {
-  return num.startsWith(HOTEL_REVENUE_PREFIX);
+  return matchesAny(num, HOTEL_REVENUE_ACCOUNTS);
 }
 
 function isHotelExpense(num: string): boolean {
-  return HOTEL_EXPENSE_PREFIXES.some((p) => num.startsWith(p));
+  return matchesAny(num, HOTEL_EXPENSE_ACCOUNTS);
 }
 
 function isJrwIncome(num: string): boolean {
   const prefix = num.charAt(0);
-  return (prefix === "4" || prefix === "5") && !isBigRevenue(num) && !isHotelRevenue(num) && !num.startsWith("5875-");
+  if (!((prefix === "4" || prefix === "5") && !isBigRevenue(num) && !isHotelRevenue(num) && !num.startsWith("5875-"))) return false;
+  if (matchesAny(num, JRW_EXCLUDE_INCOME)) return false;
+  return true;
 }
 
 function isJrwExpense(num: string): boolean {
   const prefix = num.charAt(0);
-  return (prefix === "6" || prefix === "7" || prefix === "8") && !isBigExpense(num) && !isHotelExpense(num);
+  if (!((prefix === "6" || prefix === "7") && !isBigExpense(num) && !isHotelExpense(num))) return false;
+  if (matchesAny(num, JRW_EXCLUDE_EXPENSE)) return false;
+  return true;
 }
 
 export async function GET() {
@@ -64,7 +116,7 @@ export async function GET() {
       }),
     ]);
 
-    // --- JRW Portfolio ---
+    // --- JRW Portfolio: NOI = property income - operating expense ---
     let jrwIncome = 0;
     let jrwExpenses = 0;
     for (const row of incomeRows) {
@@ -73,7 +125,7 @@ export async function GET() {
       if (isJrwIncome(num)) jrwIncome += ytd;
       if (isJrwExpense(num)) jrwExpenses += ytd;
     }
-    const jrwNetIncome = jrwIncome + jrwExpenses; // expenses are negative
+    const jrwNoi = jrwIncome + jrwExpenses; // expenses are negative in the data
 
     const totalUnits = rentRows.length;
     const occupied = rentRows.filter((r) => {
@@ -81,53 +133,46 @@ export async function GET() {
       return s.includes("current") || s.includes("occupied");
     }).length;
     const occupancyRate = totalUnits > 0 ? Math.round((occupied / totalUnits) * 100) : 0;
+    const propertyCount = 14;
 
-    // Count distinct properties (JRW only — exclude hotel)
-    const propertyCount = 14; // Known from entity map
-
-    // --- BIG Management ---
-    let bigRevenue = 0;
+    // --- BIG Management: net income = total income - total expense, margin = NI / income ---
+    let bigIncome = 0;
     let bigExpenses = 0;
     for (const row of incomeRows) {
       const num = (row.account_number || "").trim();
       const ytd = parseAmount(row.year_to_date);
-      if (isBigRevenue(num)) bigRevenue += ytd;
-      if (isBigExpense(num)) bigExpenses += ytd;
+      if (isBigRevenue(num)) bigIncome += ytd;
+      if (isBigExpense(num)) bigExpenses += ytd; // negative
     }
-    // bigExpenses is negative, so margin = (revenue - |expenses|) / revenue
-    const bigOverhead = Math.abs(bigExpenses);
-    const bigMargin = bigRevenue > 0 ? Math.round(((bigRevenue - bigOverhead) / bigRevenue) * 100) : 0;
+    const bigNetIncome = bigIncome + bigExpenses;
+    const bigMargin = bigIncome > 0 ? Math.round((bigNetIncome / bigIncome) * 100) : 0;
 
-    // --- Badger Hotel ---
+    // Fee revenue subset (for display)
+    let bigFeeRevenue = 0;
+    for (const row of incomeRows) {
+      const num = (row.account_number || "").trim();
+      if (num.startsWith("5820-0000") || num.startsWith("5820-1000") ||
+          num.startsWith("5750-0000") || num.startsWith("5755-0000")) {
+        bigFeeRevenue += parseAmount(row.year_to_date);
+      }
+    }
+
+    // --- Badger Hotel: Room Revenue + GOP ---
     let hotelRevenue = 0;
+    let hotelRoomRevenue = 0;
     let hotelExpenses = 0;
     for (const row of incomeRows) {
       const num = (row.account_number || "").trim();
       const ytd = parseAmount(row.year_to_date);
-      if (isHotelRevenue(num)) hotelRevenue += ytd;
-      if (isHotelExpense(num)) hotelExpenses += ytd;
-    }
-    // Hotel metrics — revenue-derived estimates (actual room night data not in AppFolio GL)
-    // Using known hotel parameters: ~60 rooms, $118 avg daily rate
-    const estimatedRooms = 60;
-    const daysYtd = Math.ceil((Date.now() - new Date(firstOfYear()).getTime()) / 86400000);
-    const availableRoomNights = estimatedRooms * daysYtd;
-    // Room revenue is account 4400-1000 only (not misc income)
-    let pureRoomRevenue = 0;
-    for (const row of incomeRows) {
-      const num = (row.account_number || "").trim();
-      if (num.startsWith("4400-1000") || num.startsWith("4400-2000")) {
-        pureRoomRevenue += parseAmount(row.year_to_date);
+      if (isHotelRevenue(num)) {
+        hotelRevenue += ytd;
+        if (num.startsWith("4400-1000") || num.startsWith("4400-2000")) {
+          hotelRoomRevenue += ytd;
+        }
       }
+      if (isHotelExpense(num)) hotelExpenses += ytd; // negative
     }
-    const estimatedAdr = pureRoomRevenue > 0 && availableRoomNights > 0
-      ? Math.round(pureRoomRevenue / (availableRoomNights * 0.74)) // assume ~74% occ to back into ADR
-      : 118;
-    // Derive occupancy from room revenue / (ADR * available nights)
-    const estimatedOccupancy = availableRoomNights > 0 && estimatedAdr > 0
-      ? Math.min(Math.round((pureRoomRevenue / estimatedAdr / availableRoomNights) * 100), 99)
-      : 0;
-    const estimatedRevpar = Math.round(estimatedAdr * (estimatedOccupancy / 100));
+    const hotelGop = hotelRevenue + hotelExpenses;
 
     // --- Alerts ---
     const now = new Date();
@@ -140,23 +185,31 @@ export async function GET() {
 
     const agedReceivables = arRows.reduce((sum, r) => sum + parseAmount(r.total_amount), 0);
 
-    // Fee reconciliation: compare BIG fee income (5820+5820-1000) vs property fee expense (6300+7301)
-    let bigFeeIncome = 0;
-    let propertyFeeExpense = 0;
+    // --- Fee Reconciliation per spec §7 ---
+    // Management leg: BIG 5820-0000 income vs property 6300-0000 + 7301-0000 expense
+    // Asset-mgmt leg: BIG 5820-1000 income vs property 7300-0000 expense
+    let bigMgmtIncome = 0;
+    let bigAssetIncome = 0;
+    let propertyMgmtExpense = 0;
+    let propertyAssetExpense = 0;
     for (const row of incomeRows) {
       const num = (row.account_number || "").trim();
       const ytd = parseAmount(row.year_to_date);
-      if (num.startsWith("5820-0000") || num.startsWith("5820-1000")) {
-        bigFeeIncome += ytd;
+      if (num.startsWith("5820-0000")) bigMgmtIncome += ytd;
+      if (num.startsWith("5820-1000")) bigAssetIncome += ytd;
+      if (num.startsWith("6300-0000") || num.startsWith("7301-0000")) {
+        propertyMgmtExpense += Math.abs(ytd);
       }
-      if (num.startsWith("6300-0000") || num.startsWith("7301-0000") || num.startsWith("7300-0000")) {
-        propertyFeeExpense += Math.abs(ytd);
+      if (num.startsWith("7300-0000")) {
+        propertyAssetExpense += Math.abs(ytd);
       }
     }
-    const feeReconciliationGap = Math.round(Math.abs(bigFeeIncome - propertyFeeExpense));
+    const varianceMgmt = bigMgmtIncome - propertyMgmtExpense;
+    const varianceAsset = bigAssetIncome - propertyAssetExpense;
+    const feeReconciliationGap = Math.round(Math.abs(varianceMgmt + varianceAsset));
 
-    // --- Monthly Trends (use MTD-by-month via parallel fetches) ---
-    const currentMonth = new Date().getMonth(); // 0-indexed
+    // --- Monthly Trends ---
+    const currentMonth = new Date().getMonth();
     const year = new Date().getFullYear();
     const monthlyFetches = [];
     for (let m = 0; m <= currentMonth; m++) {
@@ -187,29 +240,35 @@ export async function GET() {
 
     return Response.json({
       jrw: {
-        netIncome: Math.round(jrwNetIncome),
+        noi: Math.round(jrwNoi),
         occupancyRate,
         propertyCount,
         monthlyTrend: jrwTrend,
       },
       big: {
-        feeRevenue: Math.round(bigRevenue),
+        feeRevenue: Math.round(bigFeeRevenue),
+        totalIncome: Math.round(bigIncome),
         totalExpenses: Math.round(Math.abs(bigExpenses)),
+        netIncome: Math.round(bigNetIncome),
         margin: bigMargin,
         propertiesManaged: propertyCount,
         monthlyTrend: bigTrend,
       },
       hotel: {
-        roomRevenue: Math.round(hotelRevenue),
-        occupancyRate: estimatedOccupancy,
-        adr: estimatedAdr,
-        revpar: estimatedRevpar,
+        roomRevenue: Math.round(hotelRoomRevenue),
+        totalRevenue: Math.round(hotelRevenue),
+        gop: Math.round(hotelGop),
         monthlyTrend: hotelTrend,
       },
       alerts: {
         leasesExpiring,
         agedReceivables: Math.round(agedReceivables),
         feeReconciliationGap,
+      },
+      period: {
+        from: firstOfYear(),
+        to: today(),
+        basis: "YTD",
       },
     });
   } catch (err) {

@@ -5,29 +5,35 @@ import Link from "next/link";
 
 interface SummaryData {
   jrw: {
-    netIncome: number;
+    noi: number;
     occupancyRate: number;
     propertyCount: number;
     monthlyTrend?: number[];
   };
   big: {
     feeRevenue: number;
+    totalIncome: number;
     totalExpenses: number;
+    netIncome: number;
     margin: number;
     propertiesManaged: number;
     monthlyTrend?: number[];
   };
   hotel: {
     roomRevenue: number;
-    occupancyRate: number;
-    adr: number;
-    revpar: number;
+    totalRevenue: number;
+    gop: number;
     monthlyTrend?: number[];
   };
   alerts: {
     leasesExpiring: number;
     agedReceivables: number;
     feeReconciliationGap: number;
+  };
+  period: {
+    from: string;
+    to: string;
+    basis: string;
   };
 }
 
@@ -98,13 +104,18 @@ export default function CommandCenterPage() {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Command Center
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Three businesses, run independently
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Command Center
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Three businesses, run independently
+          </p>
+        </div>
+        <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+          {data.period.basis} · {data.period.from} to {data.period.to}
+        </span>
       </div>
 
       {/* Three Business Cards */}
@@ -122,9 +133,9 @@ export default function CommandCenterPage() {
               JRW Portfolio
             </p>
             <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-              {fmtK(data.jrw.netIncome)}
+              {fmtK(data.jrw.noi)}
             </p>
-            <p className="text-xs text-gray-400 mb-2">Net Income · YTD</p>
+            <p className="text-xs text-gray-400 mb-2">NOI · {data.period.basis}</p>
             <div className="flex justify-between text-xs text-gray-500">
               <span>{data.jrw.occupancyRate}% occ.</span>
               <span>{data.jrw.propertyCount} properties</span>
@@ -150,9 +161,9 @@ export default function CommandCenterPage() {
             <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
               {fmtK(data.big.feeRevenue)}
             </p>
-            <p className="text-xs text-gray-400 mb-2">Fee Revenue · YTD</p>
+            <p className="text-xs text-gray-400 mb-2">Fee Revenue · {data.period.basis}</p>
             <div className="flex justify-between text-xs text-gray-500">
-              <span>{data.big.margin}% margin</span>
+              <span className={data.big.margin < 0 ? "text-red-500" : ""}>{data.big.margin}% margin</span>
               <span>{data.big.propertiesManaged} managed</span>
             </div>
             {data.big.monthlyTrend && (
@@ -176,10 +187,10 @@ export default function CommandCenterPage() {
             <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
               {fmtK(data.hotel.roomRevenue)}
             </p>
-            <p className="text-xs text-gray-400 mb-2">Room Revenue · YTD</p>
+            <p className="text-xs text-gray-400 mb-2">Room Revenue · {data.period.basis}</p>
             <div className="flex justify-between text-xs text-gray-500">
-              <span>${data.hotel.adr} ADR</span>
-              <span>{data.hotel.occupancyRate}% occ.</span>
+              <span>{fmtK(data.hotel.gop)} GOP</span>
+              <span>{fmtK(data.hotel.totalRevenue)} total rev.</span>
             </div>
             {data.hotel.monthlyTrend && (
               <Sparkline data={data.hotel.monthlyTrend} color="#a855f7" />
