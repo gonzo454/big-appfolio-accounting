@@ -17,8 +17,8 @@ interface ArRow {
 
 // BIG revenue accounts
 const BIG_REVENUE_PREFIXES = ["5820-0000", "5820-1000", "5750-0000", "5755-0000", "5760-0000"];
-// BIG expense prefixes
-const BIG_EXPENSE_PREFIXES = ["6304-0000", "6304-0100", "6305-", "6306-1000", "7000-", "7302-", "7400-", "7420-", "7430-", "7440-", "7520-", "7610-1000", "7620-", "7700-", "7800-", "7802-"];
+// BIG expense prefixes (specific 6305 accounts to avoid double-counting hotel 6305-2450)
+const BIG_EXPENSE_PREFIXES = ["6304-0000", "6304-0100", "6305-0000", "6305-0300", "6305-1000", "6305-2000", "6305-2100", "6305-3200", "6305-3500", "6306-1000", "7000-", "7302-", "7400-", "7420-", "7430-", "7440-", "7520-", "7610-1000", "7620-", "7700-", "7800-", "7802-"];
 // Hotel revenue accounts
 const HOTEL_REVENUE_PREFIX = "4400-";
 // Hotel expense prefixes
