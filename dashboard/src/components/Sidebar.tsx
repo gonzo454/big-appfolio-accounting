@@ -16,7 +16,7 @@ const jrwNav = [
 ];
 
 const bigNav = [
-  { href: "/big/dashboard", label: "Management Dashboard", icon: "gear-up" },
+  { href: "/big/dashboard", label: "Management Dashboard", icon: "deer" },
   { href: "/big/pnl", label: "P&L Statement", icon: "📋" },
 ];
 
@@ -56,29 +56,8 @@ function NavSection({
                 : "text-gray-300 hover:bg-gray-800 hover:text-white"
             }`}
           >
-            {item.icon === "gear-up" ? (
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                className="w-7 h-7 flex-shrink-0"
-              >
-                {/* Trending up line */}
-                <path
-                  d="M3 17l5-5 4 4 9-9"
-                  stroke="#22c55e"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                {/* Arrowhead */}
-                <path
-                  d="M15 7h6v6"
-                  stroke="#22c55e"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+            {item.icon === "deer" ? (
+              <img src="/logo-white.png" alt="" className="w-5 h-7 flex-shrink-0 object-contain" />
             ) : (
               <span className="text-lg">{item.icon}</span>
             )}
