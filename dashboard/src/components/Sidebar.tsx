@@ -16,7 +16,7 @@ const jrwNav = [
 ];
 
 const bigNav = [
-  { href: "/big/dashboard", label: "Management Dashboard", icon: "🏗️" },
+  { href: "/big/dashboard", label: "Management Dashboard", icon: "gear-up" },
   { href: "/big/pnl", label: "P&L Statement", icon: "📋" },
 ];
 
@@ -56,7 +56,11 @@ function NavSection({
                 : "text-gray-300 hover:bg-gray-800 hover:text-white"
             }`}
           >
-            <span className="text-lg">{item.icon}</span>
+            {item.icon === "gear-up" ? (
+              <img src="/icon-big-mgmt.png" alt="" className="w-5 h-5" />
+            ) : (
+              <span className="text-lg">{item.icon}</span>
+            )}
             {item.label}
           </Link>
         );
