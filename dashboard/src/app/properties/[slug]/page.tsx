@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Fragment } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { DateRangePicker } from "@/components/DateRangePicker";
@@ -14,6 +14,14 @@ interface Account {
   type: string;
 }
 
+interface Transaction {
+  date: string;
+  vendor: string;
+  property: string;
+  description: string;
+  amount: number;
+}
+
 interface PropertyPnl {
   propertyName: string;
   totalIncome: number;
@@ -21,6 +29,13 @@ interface PropertyPnl {
   netIncome: number;
   accounts: Account[];
 }
+
+const fmt = (n: number) =>
+  "$" +
+  Math.abs(n).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 export default function PropertyDetailPage() {
   const params = useParams();
@@ -35,10 +50,14 @@ export default function PropertyDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const initialized = useRef(false);
+  const [dateFrom, setDateFrom] = useState<string | undefined>();
+  const [dateTo, setDateTo] = useState<string | undefined>();
 
   async function fetchData(from?: string, to?: string, period?: string) {
     setLoading(true);
     setError(null);
+    setDateFrom(from);
+    setDateTo(to);
     try {
       const qp = new URLSearchParams();
       qp.set("property", slug);
@@ -100,14 +119,14 @@ export default function PropertyDetailPage() {
               ...data.accounts
                 .filter((a) => a.type === "income")
                 .sort((a, b) => b.amount - a.amount)
-                .map((a) => [a.number, a.name, "Income", `$${a.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]),
-              ["" , "Total Income", "", `$${data.totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+                .map((a) => [a.number, a.name, "Income", fmt(a.amount)]),
+              ["" , "Total Income", "", fmt(data.totalIncome)],
               ...data.accounts
                 .filter((a) => a.type === "expense")
                 .sort((a, b) => b.amount - a.amount)
-                .map((a) => [a.number, a.name, "Expense", `$${a.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]),
-              ["", "Total Expenses", "", `$${data.totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
-              ["", "Net Income", "", `$${data.netIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+                .map((a) => [a.number, a.name, "Expense", fmt(a.amount)]),
+              ["", "Total Expenses", "", fmt(data.totalExpenses)],
+              ["", "Net Income", "", fmt(data.netIncome)],
             ]}
           />
         )}
@@ -150,108 +169,181 @@ export default function PropertyDetailPage() {
 
           {/* Income / Expense Tables */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Income */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-                <h3 className="font-semibold text-gray-900 dark:text-white">
-                  Income
-                </h3>
-                <p className="text-sm text-green-600 font-mono">
-                  ${data.totalIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </p>
-              </div>
-              <div className="max-h-[400px] overflow-y-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
-                    <tr>
-                      <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                        Account
-                      </th>
-                      <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                        Amount
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {incomeAccounts
-                      .sort((a, b) => b.amount - a.amount)
-                      .map((a) => (
-                        <tr key={a.number + a.name}>
-                          <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                            <span className="text-xs text-gray-400 mr-1">
-                              {a.number}
-                            </span>
-                            {a.name}
-                          </td>
-                          <td className="px-4 py-2 text-right font-mono text-green-600">
-                            ${a.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </td>
-                        </tr>
-                      ))}
-                    {incomeAccounts.length === 0 && (
-                      <tr>
-                        <td colSpan={2} className="px-4 py-4 text-center text-gray-400">
-                          No income accounts
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Expenses */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-                <h3 className="font-semibold text-gray-900 dark:text-white">
-                  Expenses
-                </h3>
-                <p className="text-sm text-red-600 font-mono">
-                  ${data.totalExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </p>
-              </div>
-              <div className="max-h-[400px] overflow-y-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
-                    <tr>
-                      <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                        Account
-                      </th>
-                      <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                        Amount
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {expenseAccounts
-                      .sort((a, b) => b.amount - a.amount)
-                      .map((a) => (
-                        <tr key={a.number + a.name}>
-                          <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                            <span className="text-xs text-gray-400 mr-1">
-                              {a.number}
-                            </span>
-                            {a.name}
-                          </td>
-                          <td className="px-4 py-2 text-right font-mono text-red-600">
-                            ${a.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </td>
-                        </tr>
-                      ))}
-                    {expenseAccounts.length === 0 && (
-                      <tr>
-                        <td colSpan={2} className="px-4 py-4 text-center text-gray-400">
-                          No expense accounts
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <PropertyAccountPanel
+              title="Income"
+              accounts={incomeAccounts}
+              total={data.totalIncome}
+              isExpense={false}
+              propertyName={slug}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+            />
+            <PropertyAccountPanel
+              title="Expenses"
+              accounts={expenseAccounts}
+              total={data.totalExpenses}
+              isExpense
+              propertyName={slug}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+            />
           </div>
         </>
       ) : null}
+    </div>
+  );
+}
+
+function PropertyAccountPanel({
+  title,
+  accounts,
+  total,
+  isExpense,
+  propertyName,
+  dateFrom,
+  dateTo,
+}: {
+  title: string;
+  accounts: Account[];
+  total: number;
+  isExpense: boolean;
+  propertyName: string;
+  dateFrom?: string;
+  dateTo?: string;
+}) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Transaction[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [expandedAccountTotal, setExpandedAccountTotal] = useState(0);
+
+  function toggleDrillDown(accountNum: string, accountAmount: number) {
+    if (expanded === accountNum) {
+      setExpanded(null);
+      setDetail([]);
+      return;
+    }
+    setExpanded(accountNum);
+    setExpandedAccountTotal(Math.abs(accountAmount));
+    setDetailLoading(true);
+    const params = new URLSearchParams({ account: accountNum, property: propertyName });
+    if (dateFrom) params.set("from", dateFrom);
+    if (dateTo) params.set("to", dateTo);
+    fetch(`/api/property-pnl/detail?${params.toString()}`)
+      .then((r) => r.json())
+      .then((d) => setDetail(d.transactions || []))
+      .catch(() => setDetail([]))
+      .finally(() => setDetailLoading(false));
+  }
+
+  const sorted = accounts.slice().sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+  const colorClass = isExpense ? "text-red-600" : "text-green-600";
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
+        <p className={`text-sm font-mono ${colorClass}`}>
+          ${Math.abs(total).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+        </p>
+      </div>
+      <div className="max-h-[500px] overflow-y-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
+            <tr>
+              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
+                Account
+              </th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
+                Amount
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+            {sorted.map((a) => {
+              const isOpen = expanded === a.number;
+              return (
+                <Fragment key={a.number + a.name}>
+                  <tr
+                    className="hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer"
+                    onClick={() => toggleDrillDown(a.number, a.amount)}
+                  >
+                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
+                      <span className="text-xs text-gray-400 mr-1">
+                        {isOpen ? "▼" : "▶"}
+                      </span>
+                      <span className="text-xs text-gray-400 mr-1">{a.number}</span>
+                      {a.name}
+                    </td>
+                    <td className={`px-4 py-2 text-right font-mono ${colorClass}`}>
+                      {fmt(a.amount)}
+                    </td>
+                  </tr>
+                  {isOpen && (
+                    <tr>
+                      <td colSpan={2} className="p-0">
+                        <div className="bg-gray-50 dark:bg-gray-900 px-4 py-2 border-t border-gray-200 dark:border-gray-600">
+                          {detailLoading ? (
+                            <p className="text-xs text-gray-500 py-1">Loading...</p>
+                          ) : detail.length === 0 ? (
+                            <p className="text-xs text-gray-400 py-1">No transactions found</p>
+                          ) : (
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-gray-500">
+                                  <th className="text-left py-1 pr-2 font-medium">Date</th>
+                                  <th className="text-left py-1 pr-2 font-medium">Vendor / Payee</th>
+                                  <th className="text-left py-1 pr-2 font-medium">Description</th>
+                                  <th className="text-right py-1 font-medium">Amount</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                {detail.map((t, i) => (
+                                  <tr key={i} className="hover:bg-gray-100 dark:hover:bg-gray-800">
+                                    <td className="py-1 pr-2 text-gray-500 whitespace-nowrap">{t.date || "—"}</td>
+                                    <td className="py-1 pr-2 text-gray-900 dark:text-white font-medium">{t.vendor}</td>
+                                    <td className="py-1 pr-2 text-gray-500 truncate max-w-[200px]">{t.description || "—"}</td>
+                                    <td className="py-1 text-right font-mono text-gray-900 dark:text-white">{fmt(t.amount)}</td>
+                                  </tr>
+                                ))}
+                                {(() => {
+                                  const detailSum = detail.reduce((s, t) => s + t.amount, 0);
+                                  const remainder = expandedAccountTotal - detailSum;
+                                  if (Math.abs(remainder) < 0.01) return null;
+                                  return (
+                                    <tr className="bg-gray-100 dark:bg-gray-800 border-t border-gray-300 dark:border-gray-600">
+                                      <td className="py-1 pr-2 text-gray-400">—</td>
+                                      <td colSpan={2} className="py-1 pr-2 text-gray-500 italic">
+                                        Payroll, journal entries & other
+                                      </td>
+                                      <td className="py-1 text-right font-mono text-gray-500 italic">{fmt(remainder)}</td>
+                                    </tr>
+                                  );
+                                })()}
+                                <tr className="border-t-2 border-gray-300 dark:border-gray-500 font-semibold">
+                                  <td className="py-1 pr-2" />
+                                  <td colSpan={2} className="py-1 pr-2 text-gray-700 dark:text-gray-200">Total</td>
+                                  <td className="py-1 text-right font-mono text-gray-900 dark:text-white">{fmt(expandedAccountTotal)}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+            {sorted.length === 0 && (
+              <tr>
+                <td colSpan={2} className="px-4 py-4 text-center text-gray-400">
+                  No {isExpense ? "expense" : "income"} accounts
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, Fragment } from "react";
 import { ExportButtons } from "@/components/ExportButtons";
 
 interface Account {
@@ -10,6 +10,14 @@ interface Account {
   mtd: number;
   ytd: number;
   lastYearAmount: number;
+}
+
+interface Transaction {
+  date: string;
+  vendor: string;
+  property: string;
+  description: string;
+  amount: number;
 }
 
 interface Summary {
@@ -49,6 +57,11 @@ export default function BigPnlPage() {
   const [to, setTo] = useState(todayStr());
   const initialized = useRef(false);
 
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Transaction[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [expandedAccountTotal, setExpandedAccountTotal] = useState(0);
+
   const load = useCallback(() => {
     setLoading(true);
     fetch(`/api/big-management?from=${from}&to=${to}`)
@@ -68,6 +81,25 @@ export default function BigPnlPage() {
     load();
   }, [load]);
 
+  function toggleDrillDown(accountNum: string, accountAmount: number) {
+    if (expanded === accountNum) {
+      setExpanded(null);
+      setDetail([]);
+      return;
+    }
+    setExpanded(accountNum);
+    setExpandedAccountTotal(Math.abs(accountAmount));
+    setDetailLoading(true);
+    const params = new URLSearchParams({ account: accountNum });
+    params.set("from", from);
+    params.set("to", to);
+    fetch(`/api/big-management/detail?${params.toString()}`)
+      .then((r) => r.json())
+      .then((d) => setDetail(d.transactions || []))
+      .catch(() => setDetail([]))
+      .finally(() => setDetailLoading(false));
+  }
+
   const allRows = [
     ...revenueAccounts.map((a) => ({ ...a, section: "Revenue" })),
     ...expenseAccounts.map((a) => ({
@@ -78,6 +110,64 @@ export default function BigPnlPage() {
       lastYearAmount: Math.abs(a.lastYearAmount),
     })),
   ];
+
+  function renderDrillDown() {
+    return (
+      <tr>
+        <td colSpan={6} className="p-0">
+          <div className="bg-gray-50 dark:bg-gray-900 px-4 py-2 border-t border-gray-200 dark:border-gray-600">
+            {detailLoading ? (
+              <p className="text-xs text-gray-500 py-1">Loading...</p>
+            ) : detail.length === 0 ? (
+              <p className="text-xs text-gray-400 py-1">No transactions found</p>
+            ) : (
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-gray-500">
+                    <th className="text-left py-1 pr-2 font-medium">Date</th>
+                    <th className="text-left py-1 pr-2 font-medium">Vendor / Payee</th>
+                    <th className="text-left py-1 pr-2 font-medium">Property</th>
+                    <th className="text-left py-1 pr-2 font-medium">Description</th>
+                    <th className="text-right py-1 font-medium">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {detail.map((t, i) => (
+                    <tr key={i} className="hover:bg-gray-100 dark:hover:bg-gray-800">
+                      <td className="py-1 pr-2 text-gray-500 whitespace-nowrap">{t.date || "—"}</td>
+                      <td className="py-1 pr-2 text-gray-900 dark:text-white font-medium">{t.vendor}</td>
+                      <td className="py-1 pr-2 text-gray-600 dark:text-gray-300">{t.property || "—"}</td>
+                      <td className="py-1 pr-2 text-gray-500 truncate max-w-[150px]">{t.description || "—"}</td>
+                      <td className="py-1 text-right font-mono text-gray-900 dark:text-white">{fmt(t.amount)}</td>
+                    </tr>
+                  ))}
+                  {(() => {
+                    const detailSum = detail.reduce((s, t) => s + t.amount, 0);
+                    const remainder = expandedAccountTotal - detailSum;
+                    if (Math.abs(remainder) < 0.01) return null;
+                    return (
+                      <tr className="bg-gray-100 dark:bg-gray-800 border-t border-gray-300 dark:border-gray-600">
+                        <td className="py-1 pr-2 text-gray-400">—</td>
+                        <td colSpan={3} className="py-1 pr-2 text-gray-500 italic">
+                          Payroll, journal entries & other
+                        </td>
+                        <td className="py-1 text-right font-mono text-gray-500 italic">{fmt(remainder)}</td>
+                      </tr>
+                    );
+                  })()}
+                  <tr className="border-t-2 border-gray-300 dark:border-gray-500 font-semibold">
+                    <td className="py-1 pr-2" />
+                    <td colSpan={3} className="py-1 pr-2 text-gray-700 dark:text-gray-200">Total</td>
+                    <td className="py-1 text-right font-mono text-gray-900 dark:text-white">{fmt(expandedAccountTotal)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -177,38 +267,45 @@ export default function BigPnlPage() {
                       ? ((a.ytd - a.lastYearAmount) / Math.abs(a.lastYearAmount)) *
                         100
                       : 0;
+                  const isOpen = expanded === a.number;
                   return (
-                    <tr
-                      key={a.number}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-750"
-                    >
-                      <td className="px-4 py-2 pl-8 text-gray-900 dark:text-white">
-                        {a.name}
-                      </td>
-                      <td className="px-4 py-2 text-gray-500 font-mono text-xs">
-                        {a.number}
-                      </td>
-                      <td className="px-4 py-2 text-right font-mono text-gray-900 dark:text-white">
-                        {fmt(a.mtd)}
-                      </td>
-                      <td className="px-4 py-2 text-right font-mono text-green-600">
-                        {fmt(a.ytd)}
-                      </td>
-                      <td className="px-4 py-2 text-right font-mono text-gray-500">
-                        {fmt(a.lastYearAmount)}
-                      </td>
-                      <td
-                        className={`px-4 py-2 text-right font-mono text-sm ${
-                          yoy > 0
-                            ? "text-green-600"
-                            : yoy < 0
-                            ? "text-red-600"
-                            : "text-gray-400"
-                        }`}
+                    <Fragment key={a.number}>
+                      <tr
+                        className="hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer"
+                        onClick={() => toggleDrillDown(a.number, a.ytd)}
                       >
-                        {a.lastYearAmount !== 0 ? pct(yoy) : "—"}
-                      </td>
-                    </tr>
+                        <td className="px-4 py-2 pl-8 text-gray-900 dark:text-white">
+                          <span className="text-xs text-gray-400 mr-1">
+                            {isOpen ? "▼" : "▶"}
+                          </span>
+                          {a.name}
+                        </td>
+                        <td className="px-4 py-2 text-gray-500 font-mono text-xs">
+                          {a.number}
+                        </td>
+                        <td className="px-4 py-2 text-right font-mono text-gray-900 dark:text-white">
+                          {fmt(a.mtd)}
+                        </td>
+                        <td className="px-4 py-2 text-right font-mono text-green-600">
+                          {fmt(a.ytd)}
+                        </td>
+                        <td className="px-4 py-2 text-right font-mono text-gray-500">
+                          {fmt(a.lastYearAmount)}
+                        </td>
+                        <td
+                          className={`px-4 py-2 text-right font-mono text-sm ${
+                            yoy > 0
+                              ? "text-green-600"
+                              : yoy < 0
+                              ? "text-red-600"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          {a.lastYearAmount !== 0 ? pct(yoy) : "—"}
+                        </td>
+                      </tr>
+                      {isOpen && renderDrillDown()}
+                    </Fragment>
                   );
                 })}
                 {/* Revenue Total */}
@@ -259,38 +356,45 @@ export default function BigPnlPage() {
                     const absLY = Math.abs(a.lastYearAmount);
                     const yoy =
                       absLY !== 0 ? ((absYtd - absLY) / absLY) * 100 : 0;
+                    const isOpen = expanded === a.number;
                     return (
-                      <tr
-                        key={a.number}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-750"
-                      >
-                        <td className="px-4 py-2 pl-8 text-gray-900 dark:text-white">
-                          {a.name}
-                        </td>
-                        <td className="px-4 py-2 text-gray-500 font-mono text-xs">
-                          {a.number}
-                        </td>
-                        <td className="px-4 py-2 text-right font-mono text-red-600">
-                          {fmt(Math.abs(a.mtd))}
-                        </td>
-                        <td className="px-4 py-2 text-right font-mono text-red-600">
-                          {fmt(absYtd)}
-                        </td>
-                        <td className="px-4 py-2 text-right font-mono text-gray-500">
-                          {fmt(absLY)}
-                        </td>
-                        <td
-                          className={`px-4 py-2 text-right font-mono text-sm ${
-                            yoy > 0
-                              ? "text-red-600"
-                              : yoy < 0
-                              ? "text-green-600"
-                              : "text-gray-400"
-                          }`}
+                      <Fragment key={a.number}>
+                        <tr
+                          className="hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer"
+                          onClick={() => toggleDrillDown(a.number, a.ytd)}
                         >
-                          {absLY !== 0 ? pct(yoy) : "—"}
-                        </td>
-                      </tr>
+                          <td className="px-4 py-2 pl-8 text-gray-900 dark:text-white">
+                            <span className="text-xs text-gray-400 mr-1">
+                              {isOpen ? "▼" : "▶"}
+                            </span>
+                            {a.name}
+                          </td>
+                          <td className="px-4 py-2 text-gray-500 font-mono text-xs">
+                            {a.number}
+                          </td>
+                          <td className="px-4 py-2 text-right font-mono text-red-600">
+                            {fmt(Math.abs(a.mtd))}
+                          </td>
+                          <td className="px-4 py-2 text-right font-mono text-red-600">
+                            {fmt(absYtd)}
+                          </td>
+                          <td className="px-4 py-2 text-right font-mono text-gray-500">
+                            {fmt(absLY)}
+                          </td>
+                          <td
+                            className={`px-4 py-2 text-right font-mono text-sm ${
+                              yoy > 0
+                                ? "text-red-600"
+                                : yoy < 0
+                                ? "text-green-600"
+                                : "text-gray-400"
+                            }`}
+                          >
+                            {absLY !== 0 ? pct(yoy) : "—"}
+                          </td>
+                        </tr>
+                        {isOpen && renderDrillDown()}
+                      </Fragment>
                     );
                   })}
                 {/* Expense Total */}
