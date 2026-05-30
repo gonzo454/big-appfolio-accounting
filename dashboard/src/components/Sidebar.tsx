@@ -57,9 +57,28 @@ function NavSection({
             }`}
           >
             {item.icon === "gear-up" ? (
-              <span className="inline-flex items-center justify-center w-7 h-7 bg-white rounded-md flex-shrink-0">
-                <img src="/icon-big-mgmt.png" alt="" className="w-6 h-6 object-contain" />
-              </span>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                className="w-7 h-7 flex-shrink-0"
+              >
+                {/* Trending up line */}
+                <path
+                  d="M3 17l5-5 4 4 9-9"
+                  stroke="#22c55e"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                {/* Arrowhead */}
+                <path
+                  d="M15 7h6v6"
+                  stroke="#22c55e"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             ) : (
               <span className="text-lg">{item.icon}</span>
             )}
