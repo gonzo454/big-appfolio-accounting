@@ -98,15 +98,15 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto p-4 space-y-1">
         <NavSection label="JRW Portfolio" items={jrwNav} pathname={pathname} />
 
-        <div className="my-4 border-t border-gray-800" />
+        <div className="my-4 border-t border-gray-600" />
 
         <NavSection label="BIG Management" items={bigNav} pathname={pathname} />
 
-        <div className="my-4 border-t border-gray-800" />
+        <div className="my-4 border-t border-gray-600" />
 
         <NavSection label="Badger Hotel" items={hotelNav} pathname={pathname} badge="new" />
 
-        <div className="my-4 border-t border-gray-800" />
+        <div className="my-4 border-t border-gray-600" />
 
         <NavSection
           label="Sales &amp; Marketing"
