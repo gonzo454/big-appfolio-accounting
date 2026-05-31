@@ -42,7 +42,7 @@ const fmtK = (n: number) =>
   "$" +
   Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
 
-function Sparkline({ data, color }: { data: number[]; color: string }) {
+function Sparkline({ data }: { data: number[] }) {
   if (!data || data.length < 2) return null;
   const max = Math.max(...data);
   const min = Math.min(...data);
@@ -55,6 +55,9 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
     const y = h - ((v - min) / range) * (h - 4) - 2;
     return `${x},${y}`;
   });
+  // Green if trending up (last > first), red if down
+  const trending = data[data.length - 1] >= data[0];
+  const color = trending ? "#22c55e" : "#ef4444";
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-8 mt-2" preserveAspectRatio="none">
       <polyline
@@ -141,7 +144,7 @@ export default function CommandCenterPage() {
               <span>{data.jrw.propertyCount} properties</span>
             </div>
             {data.jrw.monthlyTrend && (
-              <Sparkline data={data.jrw.monthlyTrend} color="#22c55e" />
+              <Sparkline data={data.jrw.monthlyTrend} />
             )}
           </div>
         </Link>
@@ -159,15 +162,15 @@ export default function CommandCenterPage() {
               BIG Management
             </p>
             <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-              {fmtK(data.big.feeRevenue)}
+              {fmtK(data.big.totalIncome)}
             </p>
-            <p className="text-xs text-gray-400 mb-2">Fee Revenue · {data.period.basis}</p>
+            <p className="text-xs text-gray-400 mb-2">Total Revenue · {data.period.basis}</p>
             <div className="flex justify-between text-xs text-gray-500">
               <span className={data.big.margin < 0 ? "text-red-500" : ""}>{data.big.margin}% margin</span>
               <span>{data.big.propertiesManaged} managed</span>
             </div>
             {data.big.monthlyTrend && (
-              <Sparkline data={data.big.monthlyTrend} color="#f59e0b" />
+              <Sparkline data={data.big.monthlyTrend} />
             )}
           </div>
         </Link>
@@ -193,7 +196,7 @@ export default function CommandCenterPage() {
               <span>{fmtK(data.hotel.totalRevenue)} total rev.</span>
             </div>
             {data.hotel.monthlyTrend && (
-              <Sparkline data={data.hotel.monthlyTrend} color="#a855f7" />
+              <Sparkline data={data.hotel.monthlyTrend} />
             )}
           </div>
         </Link>
@@ -225,13 +228,18 @@ export default function CommandCenterPage() {
               </span>
             </Link>
           )}
-          {data.alerts.feeReconciliationGap > 0 && (
+          {data.alerts.feeReconciliationGap > 1000 ? (
             <Link href="/big/dashboard">
-              <span className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 hover:bg-red-100 transition-colors cursor-pointer">
-                Fee reconciliation off {fmtK(data.alerts.feeReconciliationGap)}
+              <span className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 hover:bg-amber-100 transition-colors cursor-pointer">
+                Internal fee recon off {fmtK(data.alerts.feeReconciliationGap)}
               </span>
             </Link>
+          ) : (
+            <span className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+              Fee recon balanced
+            </span>
           )}
+
         </div>
       </div>
     </div>
