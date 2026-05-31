@@ -29,6 +29,8 @@ interface SummaryData {
     leasesExpiring: number;
     agedReceivables: number;
     feeReconciliationGap: number;
+    externalFeeIncome?: number;
+    externalClientCount?: number;
   };
   period: {
     from: string;
@@ -228,10 +230,21 @@ export default function CommandCenterPage() {
               </span>
             </Link>
           )}
-          {data.alerts.feeReconciliationGap > 0 && (
+          {data.alerts.feeReconciliationGap > 1000 ? (
             <Link href="/big/dashboard">
-              <span className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 hover:bg-red-100 transition-colors cursor-pointer">
-                Fee reconciliation off {fmtK(data.alerts.feeReconciliationGap)}
+              <span className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 hover:bg-amber-100 transition-colors cursor-pointer">
+                Internal fee recon off {fmtK(data.alerts.feeReconciliationGap)}
+              </span>
+            </Link>
+          ) : (
+            <span className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+              Fee recon balanced
+            </span>
+          )}
+          {(data.alerts.externalFeeIncome ?? 0) > 0 && (
+            <Link href="/big/dashboard">
+              <span className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 hover:bg-blue-100 transition-colors cursor-pointer">
+                {fmtK(data.alerts.externalFeeIncome ?? 0)} external mgmt revenue · {data.alerts.externalClientCount ?? 0} clients
               </span>
             </Link>
           )}

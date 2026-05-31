@@ -359,6 +359,101 @@ export function computeAccountBreakdown(
   return { revenue, expenses };
 }
 
+/**
+ * Check if a payer name matches any known GL entity (internal portfolio).
+ * Uses exact match, substring containment, and significant-word overlap.
+ */
+function isInternalPayer(payee: string, entityNames: Set<string>): boolean {
+  if (!payee || payee.trim().length === 0) return true; // blank = reversals/adjustments
+  const p = payee.toLowerCase().trim();
+
+  for (const entity of entityNames) {
+    const e = entity.toLowerCase();
+    if (p === e || p.includes(e) || e.includes(p)) return true;
+    const pWords = p.split(/[\s,]+/).filter((w) => w.length >= 4);
+    const eWords = e.split(/[\s,]+/).filter((w) => w.length >= 4);
+    for (const pw of pWords) {
+      for (const ew of eWords) {
+        if (pw === ew) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Fee reconciliation — internal entities only.
+ *
+ * Compares BIG's management/asset-fee income (5820) from *internal* payers
+ * against the matching expense (6300 + 7301 + 7300) booked by JRW/Hotel entities.
+ * Payers that don't match any GL entity (e.g. Metro Crossing, Station 955,
+ * GC Real Estate) are classified as external third-party management clients
+ * and excluded from the reconciliation so the gap is a real integrity signal.
+ */
+export function computeFeeReconciliation(fromDate?: string, toDate?: string) {
+  const transactions = parseGL();
+  const fromSerial = fromDate ? dateToSerial(fromDate) : 0;
+  const toSerial = toDate ? dateToSerial(toDate) : 99999;
+
+  // Build set of all non-BIG entity names (the internal portfolio)
+  const internalEntities = new Set<string>();
+  for (const t of transactions) {
+    if (classifyEntity(t.entity) !== "big") {
+      internalEntities.add(t.entity);
+    }
+  }
+
+  // BIG fee income (5820), split by internal vs external payer
+  let internalFeeIncome = 0;
+  let externalFeeIncome = 0;
+  const externalPayerMap: Record<string, number> = {};
+
+  for (const t of transactions) {
+    if (t.date > 0 && (t.date < fromSerial || t.date > toSerial)) continue;
+    if (classifyEntity(t.entity) !== "big") continue;
+    if (!t.account.startsWith("5820")) continue;
+
+    const amount = t.credit - t.debit;
+    if (isInternalPayer(t.payee, internalEntities)) {
+      internalFeeIncome += amount;
+    } else {
+      externalFeeIncome += amount;
+      const key = t.payee || "(unattributed)";
+      externalPayerMap[key] = (externalPayerMap[key] || 0) + amount;
+    }
+  }
+
+  // Internal entity fee expense (6300 + 7301 + 7300 from JRW + Hotel)
+  let internalFeeExpense = 0;
+  for (const t of transactions) {
+    if (t.date > 0 && (t.date < fromSerial || t.date > toSerial)) continue;
+    if (classifyEntity(t.entity) === "big") continue;
+    if (
+      t.account.startsWith("6300") ||
+      t.account.startsWith("7301") ||
+      t.account.startsWith("7300")
+    ) {
+      internalFeeExpense += t.debit - t.credit;
+    }
+  }
+
+  const internalGap = Math.round(Math.abs(internalFeeIncome - internalFeeExpense));
+  const externalPayers = Object.entries(externalPayerMap)
+    .filter(([, a]) => a !== 0)
+    .map(([name, amount]) => ({ name, amount: Math.round(amount) }))
+    .sort((a, b) => b.amount - a.amount);
+
+  return {
+    internalFeeIncome: Math.round(internalFeeIncome),
+    internalFeeExpense: Math.round(internalFeeExpense),
+    externalFeeIncome: Math.round(externalFeeIncome),
+    totalFeeIncome: Math.round(internalFeeIncome + externalFeeIncome),
+    internalGap,
+    externalPayers,
+    externalClientCount: externalPayers.length,
+  };
+}
+
 export function dateToSerial(isoDate: string): number {
   const d = new Date(isoDate + "T00:00:00Z");
   // Excel serial: days since 1899-12-30
