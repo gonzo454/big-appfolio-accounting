@@ -39,9 +39,12 @@ export default function ExecutiveDashboard() {
       if (to) params.set("to", to);
       if (period) params.set("period", period);
       const qs = params.toString() ? `?${params.toString()}` : "";
+      const acctQs = ownershipView ? "?view=joe" : "";
+      const pnlSep = qs ? "&" : "?";
+      const pnlViewParam = ownershipView ? `${pnlSep}view=joe` : "";
       const [propRes, pnlRes, rentRes] = await Promise.all([
-        fetch(`/api/account-totals${ownershipView ? "?view=joe" : ""}`),
-        fetch(`/api/income-statement${qs}`),
+        fetch(`/api/account-totals${acctQs}`),
+        fetch(`/api/income-statement${qs}${pnlViewParam}`),
         fetch("/api/rent-roll"),
       ]);
 
