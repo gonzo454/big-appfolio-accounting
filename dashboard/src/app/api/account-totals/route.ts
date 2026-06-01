@@ -1,4 +1,5 @@
-import { fetchReport, parseAmount } from "@/lib/appfolio";
+import { fetchReport, parseAmount, firstOfYear, today } from "@/lib/appfolio";
+import { computeSectionPnL } from "@/lib/gl-parser";
 
 interface AccountTotalRow {
   property_name?: string;
@@ -17,6 +18,16 @@ export async function GET() {
         netAmount: parseAmount(r.net_amount),
         endingBalance: parseAmount(r.ending_balance),
       }));
+
+    // Badger Hotel Group is not in AppFolio account_totals — inject from GL
+    if (!properties.some((p) => p.name === "Badger Hotel Group")) {
+      const sections = computeSectionPnL(firstOfYear(), today());
+      properties.push({
+        name: "Badger Hotel Group",
+        netAmount: Math.round(sections.hotel.noi),
+        endingBalance: 0,
+      });
+    }
 
     return Response.json({ properties });
   } catch (err) {

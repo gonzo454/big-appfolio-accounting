@@ -183,7 +183,7 @@ export default function CommandCenterPage() {
           </div>
         </Link>
 
-        {/* BIG Management */}
+        {/* Blackdeer Investment Group */}
         <Link href="/big/dashboard" className="block group">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md hover:border-amber-200 transition-all cursor-pointer h-full">
             <div className="flex items-center justify-between mb-3">
@@ -193,7 +193,7 @@ export default function CommandCenterPage() {
               <span className="text-gray-400 group-hover:text-amber-600 transition-colors">→</span>
             </div>
             <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
-              BIG Management
+              Blackdeer Investment Group
             </p>
             <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
               {fmtK(data.big.totalIncome)}
