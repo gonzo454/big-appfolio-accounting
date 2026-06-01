@@ -8,6 +8,7 @@ import { ExportButtons } from "@/components/ExportButtons";
 interface Property {
   name: string;
   netAmount: number;
+  ownershipPct?: number;
 }
 
 interface PnlData {
@@ -39,12 +40,9 @@ export default function ExecutiveDashboard() {
       if (to) params.set("to", to);
       if (period) params.set("period", period);
       const qs = params.toString() ? `?${params.toString()}` : "";
-      const acctQs = ownershipView ? "?view=joe" : "";
-      const pnlSep = qs ? "&" : "?";
-      const pnlViewParam = ownershipView ? `${pnlSep}view=joe` : "";
       const [propRes, pnlRes, rentRes] = await Promise.all([
-        fetch(`/api/account-totals${acctQs}`),
-        fetch(`/api/income-statement${qs}${pnlViewParam}`),
+        fetch("/api/account-totals"),
+        fetch(`/api/income-statement${qs}`),
         fetch("/api/rent-roll"),
       ]);
 
@@ -69,19 +67,37 @@ export default function ExecutiveDashboard() {
     }
   }, []);
 
-  useEffect(() => {
-    if (initialized.current) {
-      fetchData(dateRange.from || undefined, dateRange.to || undefined);
-    }
-  }, [ownershipView]);
-
   function handleRangeChange(from: string, to: string, period: string) {
     setDateRange({ from, to });
     fetchData(from, to, period);
   }
 
+  // Compute ownership-weighted values client-side
+  const portfolioNet = properties.reduce((sum, p) => sum + p.netAmount, 0);
+  const joeNet = properties.reduce(
+    (sum, p) => sum + Math.round(p.netAmount * (p.ownershipPct ?? 1)),
+    0
+  );
+  const ownershipRatio =
+    ownershipView && portfolioNet !== 0 ? joeNet / portfolioNet : 1;
+
+  const displayProperties = ownershipView
+    ? properties.map((p) => ({
+        ...p,
+        netAmount: Math.round(p.netAmount * (p.ownershipPct ?? 1)),
+      }))
+    : properties;
+
+  const displayPnl = pnl
+    ? {
+        totalIncome: Math.round(pnl.totalIncome * ownershipRatio),
+        totalExpenses: Math.round(pnl.totalExpenses * ownershipRatio),
+        netIncome: Math.round(pnl.netIncome * ownershipRatio),
+      }
+    : null;
+
   const maxAbsolute = Math.max(
-    ...properties.map((p) => Math.abs(p.netAmount)),
+    ...displayProperties.map((p) => Math.abs(p.netAmount)),
     1
   );
 
@@ -128,18 +144,18 @@ export default function ExecutiveDashboard() {
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {pnl && (
+        {displayPnl && (
           <ExportButtons
             fileName="Executive_Dashboard"
             title="Executive Dashboard Summary"
             headers={["Property", "Net Income"]}
             rows={[
-              ["TOTAL INCOME", `$${(pnl.totalIncome || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
-              ["TOTAL EXPENSES", `$${(pnl.totalExpenses || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
-              ["NET INCOME", `$${(pnl.netIncome || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+              ["TOTAL INCOME", `$${(displayPnl.totalIncome || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+              ["TOTAL EXPENSES", `$${(displayPnl.totalExpenses || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+              ["NET INCOME", `$${(displayPnl.netIncome || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
               ["OCCUPANCY", `${occupancyRate}% (${rent?.occupied || 0}/${rent?.totalUnits || 0} units)`],
               ["", ""],
-              ...properties.sort((a, b) => b.netAmount - a.netAmount).map((p) => [
+              ...displayProperties.sort((a, b) => b.netAmount - a.netAmount).map((p) => [
                 p.name,
                 `$${p.netAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
               ]),
@@ -158,19 +174,19 @@ export default function ExecutiveDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <KpiCard
               label="Total Income"
-              value={pnl?.totalIncome ?? 0}
-              color={(pnl?.totalIncome ?? 0) >= 0 ? "text-green-600" : "text-red-600"}
+              value={displayPnl?.totalIncome ?? 0}
+              color={(displayPnl?.totalIncome ?? 0) >= 0 ? "text-green-600" : "text-red-600"}
             />
             <KpiCard
               label="Total Expenses"
-              value={pnl?.totalExpenses ?? 0}
+              value={displayPnl?.totalExpenses ?? 0}
               color="text-red-600"
             />
             <KpiCard
               label="Net Income"
-              value={pnl?.netIncome ?? 0}
+              value={displayPnl?.netIncome ?? 0}
               color={
-                (pnl?.netIncome ?? 0) >= 0 ? "text-green-600" : "text-red-600"
+                (displayPnl?.netIncome ?? 0) >= 0 ? "text-green-600" : "text-red-600"
               }
             />
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-5 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
@@ -191,7 +207,7 @@ export default function ExecutiveDashboard() {
               Property Profitability
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {properties
+              {displayProperties
                 .sort((a, b) => b.netAmount - a.netAmount)
                 .map((p) => (
                   <ProfitGauge

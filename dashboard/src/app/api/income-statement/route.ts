@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { fetchReport, firstOfMonth, today, parseAmount } from "@/lib/appfolio";
-import { getOwnership } from "@/lib/ownership";
 
 interface IncomeRow {
   account_name?: string;
@@ -59,127 +58,13 @@ function extractTotals(
   return { totalIncome, totalExpenses, accounts };
 }
 
-interface AccountTotalsRow {
-  property_id?: number;
-  property_name?: string;
-}
-
-async function fetchOwnershipWeighted(
-  from: string,
-  to: string,
-  period: string
-): Promise<{ totalIncome: number; totalExpenses: number; accounts: { name: string; number: string; amount: number; type: string }[]; method: string }> {
-  const allProps = await fetchReport<AccountTotalsRow>("account_totals", {
-    posted_on_from: from,
-    posted_on_to: to,
-  });
-  const propList = allProps.filter(
-    (r) => r.property_name?.trim() && r.property_id
-  );
-
-  const column: "month_to_date" | "year_to_date" =
-    from.endsWith("-01-01") || period === "ytd" ? "year_to_date" :
-    sameMonth(from, to) ? "month_to_date" : "year_to_date";
-
-  const isSubtraction = !(from.endsWith("-01-01") || period === "ytd") && !sameMonth(from, to);
-
-  const perProp = await Promise.all(
-    propList.map(async (prop) => {
-      const pct = getOwnership(prop.property_name!.trim());
-      const pFilter = { properties_ids: [prop.property_id!] };
-
-      if (!isSubtraction) {
-        const rows = await fetchReport<IncomeRow>("income_statement", {
-          posted_on_from: from,
-          posted_on_to: to,
-          properties: pFilter,
-        });
-        const ext = extractTotals(rows, column);
-        return {
-          totalIncome: Math.round(ext.totalIncome * pct),
-          totalExpenses: Math.round(ext.totalExpenses * pct),
-          accounts: ext.accounts.map((a) => ({ ...a, amount: Math.round(a.amount * pct) })),
-        };
-      }
-
-      const beforeFrom = dayBefore(from);
-      const [endRows, startRows] = await Promise.all([
-        fetchReport<IncomeRow>("income_statement", {
-          posted_on_from: from,
-          posted_on_to: to,
-          properties: pFilter,
-        }, true),
-        fetchReport<IncomeRow>("income_statement", {
-          posted_on_from: beforeFrom.slice(0, 8) + "01",
-          posted_on_to: beforeFrom,
-          properties: pFilter,
-        }, true),
-      ]);
-      const endExt = extractTotals(endRows, "year_to_date");
-      const startExt = extractTotals(startRows, "year_to_date");
-      const inc = endExt.totalIncome - startExt.totalIncome;
-      const exp = endExt.totalExpenses - startExt.totalExpenses;
-      const startMap = new Map<string, number>();
-      for (const a of startExt.accounts) startMap.set(a.number, a.amount);
-      const accts = endExt.accounts
-        .map((a) => ({ ...a, amount: a.amount - (startMap.get(a.number) || 0) }))
-        .filter((a) => a.amount !== 0)
-        .map((a) => ({ ...a, amount: Math.round(a.amount * pct) }));
-      return {
-        totalIncome: Math.round(inc * pct),
-        totalExpenses: Math.round(exp * pct),
-        accounts: accts,
-      };
-    })
-  );
-
-  let totalIncome = 0;
-  let totalExpenses = 0;
-  const acctMap = new Map<string, { name: string; number: string; amount: number; type: string }>();
-  for (const p of perProp) {
-    totalIncome += p.totalIncome;
-    totalExpenses += p.totalExpenses;
-    for (const a of p.accounts) {
-      const existing = acctMap.get(a.number);
-      if (existing) {
-        existing.amount += a.amount;
-      } else {
-        acctMap.set(a.number, { ...a });
-      }
-    }
-  }
-
-  const method = isSubtraction ? "ytd_subtraction" :
-    (from.endsWith("-01-01") || period === "ytd") ? "year_to_date" : "month_to_date";
-
-  return {
-    totalIncome,
-    totalExpenses,
-    accounts: Array.from(acctMap.values()).filter((a) => a.amount !== 0),
-    method,
-  };
-}
-
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const from = params.get("from") || firstOfMonth();
   const to = params.get("to") || today();
   const period = params.get("period") || "mtd";
-  const ownershipView = params.get("view") === "joe";
 
   try {
-    if (ownershipView) {
-      const result = await fetchOwnershipWeighted(from, to, period);
-      return Response.json({
-        totalIncome: result.totalIncome,
-        totalExpenses: result.totalExpenses,
-        netIncome: result.totalIncome - result.totalExpenses,
-        accounts: result.accounts,
-        ownershipView: true,
-        period: { from, to, method: result.method },
-      });
-    }
-
     if (from.endsWith("-01-01") || period === "ytd") {
       // YTD range — use year_to_date directly
       const rows = await fetchReport<IncomeRow>("income_statement", {
