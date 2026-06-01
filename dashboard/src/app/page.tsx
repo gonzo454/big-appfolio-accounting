@@ -56,9 +56,7 @@ function Sparkline({ data }: { data: number[] }) {
     const y = h - ((v - min) / range) * (h - 4) - 2;
     return `${x},${y}`;
   });
-  // Green if trending up (last > first), red if down
-  const trending = data[data.length - 1] >= data[0];
-  const color = trending ? "#22c55e" : "#ef4444";
+  const color = "#22c55e";
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-8 mt-2" preserveAspectRatio="none">
       <polyline
@@ -133,19 +131,34 @@ export default function CommandCenterPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setOwnershipView(!ownershipView)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-              ownershipView
-                ? "bg-[#E07B2A]/10 border-[#E07B2A] text-[#E07B2A]"
-                : "bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400"
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-            </svg>
-            {ownershipView ? "Joe's Share" : "Portfolio View"}
-          </button>
+          <div className="flex items-center rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+            <button
+              onClick={() => setOwnershipView(false)}
+              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition-all ${
+                !ownershipView
+                  ? "bg-[#E07B2A] text-white"
+                  : "bg-white text-gray-500 hover:bg-[#E07B2A]/10 hover:text-[#E07B2A] dark:bg-gray-700 dark:text-gray-400"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+              </svg>
+              Portfolio View
+            </button>
+            <button
+              onClick={() => setOwnershipView(true)}
+              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition-all border-l border-gray-200 dark:border-gray-600 ${
+                ownershipView
+                  ? "bg-[#E07B2A] text-white"
+                  : "bg-white text-gray-500 hover:bg-[#E07B2A]/10 hover:text-[#E07B2A] dark:bg-gray-700 dark:text-gray-400"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+              </svg>
+              Joe&apos;s Share
+            </button>
+          </div>
           <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
             {data.period.basis} · {data.period.from} to {data.period.to}
           </span>
@@ -183,7 +196,7 @@ export default function CommandCenterPage() {
           </div>
         </Link>
 
-        {/* BIG Management */}
+        {/* Blackdeer Investment Group */}
         <Link href="/big/dashboard" className="block group">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md hover:border-amber-200 transition-all cursor-pointer h-full">
             <div className="flex items-center justify-between mb-3">
@@ -193,7 +206,7 @@ export default function CommandCenterPage() {
               <span className="text-gray-400 group-hover:text-amber-600 transition-colors">→</span>
             </div>
             <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
-              BIG Management
+              Blackdeer Investment Group
             </p>
             <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
               {fmtK(data.big.totalIncome)}

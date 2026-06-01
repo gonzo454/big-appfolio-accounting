@@ -104,7 +104,7 @@ export function Sidebar() {
 
         <div className="my-4 border-t border-gray-600" />
 
-        <NavSection label="BIG Management" items={bigNav} pathname={pathname} />
+        <NavSection label="Blackdeer I.G." items={bigNav} pathname={pathname} />
 
         <div className="my-4 border-t border-gray-600" />
 
