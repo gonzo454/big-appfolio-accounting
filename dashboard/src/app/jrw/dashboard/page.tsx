@@ -118,19 +118,19 @@ export default function ExecutiveDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <KpiCard
               label="Total Income"
-              value={pnl?.totalIncome || 0}
-              color="text-green-600"
+              value={pnl?.totalIncome ?? 0}
+              color={(pnl?.totalIncome ?? 0) >= 0 ? "text-green-600" : "text-red-600"}
             />
             <KpiCard
               label="Total Expenses"
-              value={pnl?.totalExpenses || 0}
+              value={pnl?.totalExpenses ?? 0}
               color="text-red-600"
             />
             <KpiCard
               label="Net Income"
-              value={pnl?.netIncome || 0}
+              value={pnl?.netIncome ?? 0}
               color={
-                (pnl?.netIncome || 0) >= 0 ? "text-green-600" : "text-red-600"
+                (pnl?.netIncome ?? 0) >= 0 ? "text-green-600" : "text-red-600"
               }
             />
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-5 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
@@ -185,13 +185,17 @@ function KpiCard({
   value: number;
   color: string;
 }) {
+  const formatted =
+    (value < 0 ? "-" : "") +
+    "$" +
+    Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 });
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl p-4 md:p-5 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
         {label}
       </p>
       <p className={`font-bold mt-1 ${color}`} style={{ fontSize: 'clamp(1rem, 2.5vw, 1.5rem)' }}>
-        ${Math.abs(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+        {formatted}
       </p>
     </div>
   );

@@ -9,6 +9,7 @@
 import * as XLSX from "xlsx";
 import path from "path";
 import fs from "fs";
+import { getOwnership } from "./ownership";
 
 export interface GLTransaction {
   account: string; // e.g. "5820-0000"
@@ -203,8 +204,10 @@ export function computeEntityPnL(
 
 /**
  * Aggregate P&L by section (big/hotel/jrw).
+ * When ownershipAdjusted is true, each entity's figures are multiplied
+ * by Joe Wagner's combined ownership percentage from the PFS.
  */
-export function computeSectionPnL(fromDate?: string, toDate?: string) {
+export function computeSectionPnL(fromDate?: string, toDate?: string, ownershipAdjusted = false) {
   const entities = computeEntityPnL(fromDate, toDate);
 
   const sections: Record<Section, {
@@ -224,12 +227,13 @@ export function computeSectionPnL(fromDate?: string, toDate?: string) {
 
   for (const e of entities) {
     const s = sections[e.section];
-    s.income += e.income;
-    s.opex += e.opex;
-    s.deprecAmort += e.deprecAmort;
-    s.debtService += e.debtService;
-    s.otherBelow += e.otherBelow;
-    s.gainOnSale += e.gainOnSale;
+    const pct = ownershipAdjusted ? getOwnership(e.entity) : 1;
+    s.income += e.income * pct;
+    s.opex += e.opex * pct;
+    s.deprecAmort += e.deprecAmort * pct;
+    s.debtService += e.debtService * pct;
+    s.otherBelow += e.otherBelow * pct;
+    s.gainOnSale += e.gainOnSale * pct;
   }
 
   for (const s of Object.values(sections)) {
@@ -243,7 +247,7 @@ export function computeSectionPnL(fromDate?: string, toDate?: string) {
 /**
  * Compute monthly trend data by section.
  */
-export function computeMonthlyTrend(year: number) {
+export function computeMonthlyTrend(year: number, ownershipAdjusted = false) {
   const transactions = parseGL();
   const currentMonth = new Date().getMonth(); // 0-indexed
 
@@ -261,24 +265,22 @@ export function computeMonthlyTrend(year: number) {
 
       const section = classifyEntity(t.entity);
       const prefix = t.account.charAt(0);
+      const pct = ownershipAdjusted ? getOwnership(t.entity) : 1;
 
       if (prefix === "4" || prefix === "5") {
         if (t.account.startsWith("5875") || t.account.startsWith("5873")) {
-          // Hotel labor + merchant fees are expenses
-          const amount = t.debit - t.credit;
+          const amount = (t.debit - t.credit) * pct;
           if (section === "jrw") monthData.jrw -= amount;
           else if (section === "big") monthData.big -= amount;
           else monthData.hotel -= amount;
         } else if (!t.account.startsWith("5756")) {
-          // Income for the section
-          const amount = t.credit - t.debit;
+          const amount = (t.credit - t.debit) * pct;
           if (section === "jrw") monthData.jrw += amount;
           else if (section === "big") monthData.big += amount;
           else monthData.hotel += amount;
         }
       } else if (prefix === "6" || prefix === "7") {
-        // Expense reduces NOI/net
-        const amount = t.debit - t.credit;
+        const amount = (t.debit - t.credit) * pct;
         if (section === "jrw") monthData.jrw -= amount;
         else if (section === "big") monthData.big -= amount;
         else monthData.hotel -= amount;

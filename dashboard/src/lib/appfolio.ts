@@ -5,17 +5,24 @@ const APPFOLIO_DATABASE = (process.env.APPFOLIO_DATABASE || "").trim();
 const cache = new Map<string, { data: unknown; expires: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+function centralNow(): Date {
+  return new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/Chicago" })
+  );
+}
+
 export function today(): string {
-  return new Date().toISOString().split("T")[0];
+  const d = centralNow();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export function firstOfMonth(): string {
-  const d = new Date();
+  const d = centralNow();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
 export function firstOfYear(): string {
-  return `${new Date().getFullYear()}-01-01`;
+  return `${centralNow().getFullYear()}-01-01`;
 }
 
 export async function fetchReport<T = Record<string, unknown>>(

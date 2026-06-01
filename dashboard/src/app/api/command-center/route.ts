@@ -1,5 +1,7 @@
 import { fetchReport, firstOfYear, today, parseAmount } from "@/lib/appfolio";
 import { computeSectionPnL, computeMonthlyTrend, computeFeeReconciliation, parseGL, classifyEntity, dateToSerial } from "@/lib/gl-parser";
+import { getOwnership } from "@/lib/ownership";
+import { NextRequest } from "next/server";
 
 interface RentRollRow {
   status?: string;
@@ -10,12 +12,15 @@ interface ArRow {
   total_amount?: string;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = request.nextUrl;
+    const ownershipView = searchParams.get("view") === "joe";
+
     // Entity-filtered P&L from GL export (the correct approach)
     const ytdFrom = firstOfYear();
     const ytdTo = today();
-    const sections = computeSectionPnL(ytdFrom, ytdTo);
+    const sections = computeSectionPnL(ytdFrom, ytdTo, ownershipView);
 
     // BIG margin = net income / total income
     const bigMargin = sections.big.income > 0
@@ -24,7 +29,7 @@ export async function GET() {
 
     // Monthly sparkline trends
     const year = new Date().getFullYear();
-    const monthlyData = computeMonthlyTrend(year);
+    const monthlyData = computeMonthlyTrend(year, ownershipView);
     const jrwTrend = monthlyData.map((m) => m.jrw);
     const bigTrend = monthlyData.map((m) => m.big);
     const hotelTrend = monthlyData.map((m) => m.hotel);
@@ -72,7 +77,8 @@ export async function GET() {
       if (t.date > 0 && (t.date < fromSerial || t.date > toSerial)) continue;
       if (classifyEntity(t.entity) !== "hotel") continue;
       if (t.account.startsWith("4400-1000") || t.account.startsWith("4400-2000")) {
-        hotelRoomRevenue += t.credit - t.debit;
+        const pct = ownershipView ? getOwnership(t.entity) : 1;
+        hotelRoomRevenue += (t.credit - t.debit) * pct;
       }
     }
 
@@ -110,6 +116,7 @@ export async function GET() {
         to: ytdTo,
         basis: "YTD",
       },
+      ownershipView,
     });
   } catch (err) {
     console.error("Command center error:", err);
