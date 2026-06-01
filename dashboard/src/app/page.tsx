@@ -78,6 +78,7 @@ export default function CommandCenterPage() {
   const [loading, setLoading] = useState(true);
   const [ownershipView, setOwnershipView] = useState(false);
   const initialized = useRef(false);
+  const skipNextToggleEffect = useRef(true);
 
   useEffect(() => {
     if (initialized.current) return;
@@ -91,7 +92,10 @@ export default function CommandCenterPage() {
   }, []);
 
   useEffect(() => {
-    if (!initialized.current) return;
+    if (skipNextToggleEffect.current) {
+      skipNextToggleEffect.current = false;
+      return;
+    }
     setLoading(true);
     fetch(`/api/command-center${ownershipView ? "?view=joe" : ""}`)
       .then((r) => r.json())
@@ -167,7 +171,7 @@ export default function CommandCenterPage() {
             </p>
             <p className="text-xs text-gray-400 mb-2">
               {ownershipView ? "Joe's Share · NOI" : "NOI"} · {data.period.basis}
-              {ownershipView && <span className="ml-1 text-[#E07B2A]">(%s vary by entity)</span>}
+              {ownershipView && <span className="ml-1 text-[#E07B2A]">(% vary by entity)</span>}
             </p>
             <div className="flex justify-between text-xs text-gray-500">
               <span>{data.jrw.occupancyRate}% occ.</span>
