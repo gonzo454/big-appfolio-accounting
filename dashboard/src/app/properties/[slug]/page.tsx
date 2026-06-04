@@ -108,7 +108,7 @@ export default function PropertyDetailPage() {
         .then((d) => {
           const match = (d.properties || []).find(
             (c: KPIProperty & { slug: string }) =>
-              c.name === slug || c.slug === slug.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+              c.name === slug || c.slug === slug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
           );
           if (match) setKpi(match);
         })

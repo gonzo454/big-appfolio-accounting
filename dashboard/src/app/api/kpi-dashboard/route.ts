@@ -1,4 +1,4 @@
-import { fetchReport, firstOfQuarter, today, parseAmount, cachedJson, centralNowExported } from "@/lib/appfolio";
+import { fetchReport, firstOfQuarter, firstOfYear, today, parseAmount, cachedJson, centralNowExported } from "@/lib/appfolio";
 import { ENTITY_PROPERTY_IDS } from "@/lib/appfolio-entities";
 import { getOwnership } from "@/lib/ownership";
 
@@ -48,7 +48,17 @@ export async function GET() {
     const qtdFrom = firstOfQuarter();
     const qtdTo = today();
 
-    const [rentRows, accountRows, bigIS, hotelIS] = await Promise.all([
+    const isQ1 = qtdFrom === firstOfYear();
+
+    // For Q1, year_to_date == QTD so one fetch per entity suffices.
+    // For Q2+, we subtract two year_to_date snapshots to get QTD.
+    function dayBefore(dateStr: string): string {
+      const d = new Date(dateStr + "T12:00:00Z");
+      d.setUTCDate(d.getUTCDate() - 1);
+      return d.toISOString().split("T")[0];
+    }
+
+    const basePromises = [
       fetchReport<RentRollRow>("rent_roll"),
       fetchReport<AccountTotalsRow>("account_totals", {
         posted_on_from: qtdFrom,
@@ -64,7 +74,32 @@ export async function GET() {
         posted_on_to: qtdTo,
         properties: { properties_ids: [ENTITY_PROPERTY_IDS.hotel] },
       }),
-    ]);
+    ];
+
+    // If not Q1, also fetch the "before quarter" snapshots for subtraction
+    if (!isQ1) {
+      const beforeQtr = dayBefore(qtdFrom);
+      basePromises.push(
+        fetchReport<IncomeRow>("income_statement", {
+          posted_on_from: beforeQtr.slice(0, 8) + "01",
+          posted_on_to: beforeQtr,
+          properties: { properties_ids: [ENTITY_PROPERTY_IDS.big] },
+        }),
+        fetchReport<IncomeRow>("income_statement", {
+          posted_on_from: beforeQtr.slice(0, 8) + "01",
+          posted_on_to: beforeQtr,
+          properties: { properties_ids: [ENTITY_PROPERTY_IDS.hotel] },
+        }),
+      );
+    }
+
+    const results = await Promise.all(basePromises);
+    const rentRows = results[0] as RentRollRow[];
+    const accountRows = results[1] as AccountTotalsRow[];
+    const bigIS = results[2] as IncomeRow[];
+    const hotelIS = results[3] as IncomeRow[];
+    const bigISPrev = !isQ1 ? (results[4] as IncomeRow[]) : [];
+    const hotelISPrev = !isQ1 ? (results[5] as IncomeRow[]) : [];
 
     // Build per-property financials from account_totals (JRW properties)
     const propertyFinancials = new Map<string, {
@@ -96,8 +131,8 @@ export async function GET() {
       }
     }
 
-    // Inject BIG and Hotel from income_statement (they're not in account_totals)
-    function injectEntity(rows: IncomeRow[], entityName: string) {
+    // Extract YTD totals from an income_statement result set
+    function extractIS(rows: IncomeRow[]) {
       let totalIncome = 0;
       let totalExpenses = 0;
       let debtService = 0;
@@ -114,16 +149,28 @@ export async function GET() {
         if (acctNum && isDebtService(acctNum)) debtService += Math.abs(amount);
         if (acctNum && isLabor(acctNum)) labor += Math.abs(amount);
       }
-      propertyFinancials.set(entityName, {
-        income: totalIncome,
-        expenses: totalExpenses,
-        debtService,
-        labor,
-      });
+      return { income: totalIncome, expenses: totalExpenses, debtService, labor };
     }
 
-    injectEntity(bigIS, "Blackdeer Investment Group");
-    injectEntity(hotelIS, "Badger Hotel Group");
+    // Inject BIG and Hotel — use QTD via YTD subtraction for Q2+
+    function injectEntity(currentRows: IncomeRow[], prevRows: IncomeRow[], entityName: string) {
+      const cur = extractIS(currentRows);
+      if (prevRows.length === 0) {
+        // Q1: year_to_date == QTD
+        propertyFinancials.set(entityName, cur);
+      } else {
+        const prev = extractIS(prevRows);
+        propertyFinancials.set(entityName, {
+          income: cur.income - prev.income,
+          expenses: cur.expenses - prev.expenses,
+          debtService: cur.debtService - prev.debtService,
+          labor: cur.labor - prev.labor,
+        });
+      }
+    }
+
+    injectEntity(bigIS, bigISPrev, "Blackdeer Investment Group");
+    injectEntity(hotelIS, hotelISPrev, "Badger Hotel Group");
 
     // Build occupancy per property from rent roll
     const rentByProperty = new Map<string, {
