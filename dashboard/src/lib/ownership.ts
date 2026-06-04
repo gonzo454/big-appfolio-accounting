@@ -1,12 +1,11 @@
 /**
  * Joe Wagner Ownership Percentages
  *
- * Source: Joe's February 2025 Personal Financial Statement (PFS)
+ * Source: Joe's February 2025 PFS + confirmed updates from Joe (June 2026)
  * Columns: "Percent Owned Joe Wagner" (personal) + "Percent Owned GST" (trust)
  * Combined = Joe's total economic interest (personal + GST trust)
  *
- * Entities not found in PFS default to 1.0 (100%) — these are assumed
- * to be fully owned until confirmed otherwise.
+ * Entities not found in map default to 1.0 (100%).
  */
 
 export interface OwnershipEntry {
@@ -39,16 +38,16 @@ export const OWNERSHIP: Record<string, OwnershipEntry> = {
     pfsName: "Cottage Grove Commons",
   },
   "Columbia St Mary's - Red Badger LLC": {
-    joePct: 0.0075,
-    gstPct: 0.7425,
-    combined: 0.75,
-    pfsName: "Columbia Saint Mary's",
+    joePct: 0.0,
+    gstPct: 0.0,
+    combined: 0.0,
+    pfsName: "Columbia Saint Mary's (SOLD)",
   },
   "Germantown Warhawks": {
-    joePct: 1.0,
+    joePct: 0.0,
     gstPct: 0.0,
-    combined: 1.0,
-    pfsName: "Germantown Land",
+    combined: 0.0,
+    pfsName: "Germantown Land (SOLD)",
   },
   "Greywolf Industrial II, LLC CIC Industrial": {
     joePct: 0.6287,
@@ -57,10 +56,10 @@ export const OWNERSHIP: Record<string, OwnershipEntry> = {
     pfsName: "Madison CIC 2",
   },
   "HC1 Acquisitions Honey Creek I": {
-    joePct: 0.0075,
-    gstPct: 0.7425,
-    combined: 0.75,
-    pfsName: "Honey Creek I",
+    joePct: 0.0,
+    gstPct: 0.0,
+    combined: 0.0,
+    pfsName: "Honey Creek I (0% per Joe)",
   },
   "Honey Badger, LLC Honey Creek II": {
     joePct: 0.0398,
@@ -68,6 +67,8 @@ export const OWNERSHIP: Record<string, OwnershipEntry> = {
     combined: 0.5178,
     pfsName: "Honey Creek II",
   },
+  // Honey Creek III — back to bank, 0% ownership
+  // Entity name TBD if it appears in AppFolio
   "Honey Creek IV, LLC": {
     joePct: 0.0079,
     gstPct: 0.7425,
@@ -91,49 +92,48 @@ export const OWNERSHIP: Record<string, OwnershipEntry> = {
     pfsName: "Comfort Suites",
   },
 
-  // Entities not in PFS — defaulting to 100% until confirmed
-  // TODO: Confirm ownership with Joe Wagner
+  // Confirmed by Joe Wagner — June 2026
   "2080 MPW LLC": {
-    joePct: 1.0,
+    joePct: 0.70,
     gstPct: 0.0,
-    combined: 1.0,
-    pfsName: "(not in PFS — assumed 100%)",
+    combined: 0.70,
+    pfsName: "2080 MPW (70% Joe)",
   },
   "Greyworks LLC": {
     joePct: 1.0,
     gstPct: 0.0,
     combined: 1.0,
-    pfsName: "(not in PFS — assumed 100%)",
+    pfsName: "Greyworks (assumed 100%)",
   },
   "Prairie Square": {
-    joePct: 1.0,
+    joePct: 0.0,
     gstPct: 0.0,
-    combined: 1.0,
-    pfsName: "(not in PFS — assumed 100%)",
+    combined: 0.0,
+    pfsName: "Prairie Square (0% per Joe)",
   },
   "Research Park": {
-    joePct: 1.0,
+    joePct: 0.0,
     gstPct: 0.0,
-    combined: 1.0,
-    pfsName: "(not in PFS — assumed 100%)",
+    combined: 0.0,
+    pfsName: "Research Park (0% per Joe)",
   },
   "Spooner St": {
-    joePct: 1.0,
+    joePct: 0.50,
     gstPct: 0.0,
-    combined: 1.0,
-    pfsName: "(not in PFS — assumed 100%)",
+    combined: 0.50,
+    pfsName: "Spooner St (50% Joe)",
   },
   "Vantage IV": {
-    joePct: 1.0,
+    joePct: 0.0,
     gstPct: 0.0,
-    combined: 1.0,
-    pfsName: "(not in PFS — assumed 100%)",
+    combined: 0.0,
+    pfsName: "Vantage IV (0% per Joe)",
   },
   "Water Tower Place": {
-    joePct: 1.0,
+    joePct: 0.0,
     gstPct: 0.0,
-    combined: 1.0,
-    pfsName: "(not in PFS — assumed 100%)",
+    combined: 0.0,
+    pfsName: "Water Tower Place (0% per Joe)",
   },
 };
 
