@@ -85,19 +85,40 @@ export default function ExecutiveDashboard() {
     }
   }
 
+  async function prefetchData(from: string, to: string, period: string) {
+    const key = `${from}:${to}:${period}`;
+    if (dataCache.current.has(key)) return;
+    try {
+      const params = new URLSearchParams({ from, to, period });
+      const qs = `?${params.toString()}`;
+      const [propRes, pnlRes, rentRes] = await Promise.all([
+        fetch("/api/account-totals"),
+        fetch(`/api/income-statement${qs}`),
+        fetch("/api/rent-roll"),
+      ]);
+      const propData = await propRes.json();
+      const pnlData = await pnlRes.json();
+      const rentData = await rentRes.json();
+      dataCache.current.set(key, {
+        properties: propData.properties || [],
+        pnl: pnlData,
+        rent: rentData.summary || null,
+      });
+    } catch {}
+  }
+
   useEffect(() => {
     if (!initialized.current) {
       initialized.current = true;
       fetchData();
-      // Prefetch QTD and YTD in background
       const d = new Date();
       const todayStr = d.toISOString().split("T")[0];
       const q = Math.floor(d.getMonth() / 3) * 3;
       const qtdFrom = `${d.getFullYear()}-${String(q + 1).padStart(2, "0")}-01`;
       const ytdFrom = `${d.getFullYear()}-01-01`;
       setTimeout(() => {
-        fetchData(qtdFrom, todayStr, "qtd");
-        fetchData(ytdFrom, todayStr, "ytd");
+        prefetchData(qtdFrom, todayStr, "qtd");
+        prefetchData(ytdFrom, todayStr, "ytd");
       }, 1500);
     }
   }, []);

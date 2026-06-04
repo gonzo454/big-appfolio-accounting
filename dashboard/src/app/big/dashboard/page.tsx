@@ -104,6 +104,22 @@ export default function BigDashboardPage() {
     []
   );
 
+  const prefetch = useCallback((from: string, to: string, period: string) => {
+    const key = `${from}:${to}:${period}`;
+    if (dataCache.current.has(key)) return;
+    const params = new URLSearchParams({ from, to, period });
+    fetch(`/api/big-management?${params.toString()}`)
+      .then((r) => r.json())
+      .then((d) => {
+        dataCache.current.set(key, {
+          summary: d.summary || null,
+          revenueAccounts: d.revenueAccounts || [],
+          expenseAccounts: d.expenseAccounts || [],
+        });
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
@@ -111,15 +127,14 @@ export default function BigDashboardPage() {
     const mtdFrom = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
     const mtdTo = d.toISOString().split("T")[0];
     fetchData(mtdFrom, mtdTo, "mtd");
-    // Prefetch QTD and YTD
     const q = Math.floor(d.getMonth() / 3) * 3;
     const qtdFrom = `${d.getFullYear()}-${String(q + 1).padStart(2, "0")}-01`;
     const ytdFrom = `${d.getFullYear()}-01-01`;
     setTimeout(() => {
-      fetchData(qtdFrom, mtdTo, "qtd");
-      fetchData(ytdFrom, mtdTo, "ytd");
+      prefetch(qtdFrom, mtdTo, "qtd");
+      prefetch(ytdFrom, mtdTo, "ytd");
     }, 1000);
-  }, [fetchData]);
+  }, [fetchData, prefetch]);
 
   function handleRangeChange(from: string, to: string, period: string) {
     setPeriodLabel(
