@@ -478,9 +478,21 @@ export function getAccountTransactions(
     if (classifyEntity(t.entity) !== section) continue;
     if (!t.account.startsWith(accountPrefix)) continue;
 
-    const net = t.account.charAt(0) === "4" || t.account.charAt(0) === "5"
-      ? t.credit - t.debit
-      : t.debit - t.credit;
+    const prefix = t.account.charAt(0);
+    let net: number;
+    if (prefix === "4" || prefix === "5") {
+      if (t.account.startsWith("5875") || t.account.startsWith("5873")) {
+        net = t.debit - t.credit; // hotel labor + merchant fees are expenses
+      } else if (t.account.startsWith("5756")) {
+        continue; // gain on sale — skip
+      } else {
+        net = t.credit - t.debit; // revenue
+      }
+    } else if (t.account.startsWith("6600") || t.account.startsWith("6650")) {
+      continue; // depreciation/amortization — skip
+    } else {
+      net = t.debit - t.credit; // expenses
+    }
     if (net === 0) continue;
 
     // Convert Excel serial to ISO date string

@@ -80,7 +80,7 @@ export default function BigPnlPage() {
     initialized.current = true;
     const d = new Date();
     const mtdFrom = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
-    const mtdTo = d.toISOString().split("T")[0];
+    const mtdTo = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     setFrom(mtdFrom);
     setTo(mtdTo);
     load(mtdFrom, mtdTo, "mtd");
