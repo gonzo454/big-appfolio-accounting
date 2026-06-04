@@ -1,6 +1,7 @@
-import { fetchReport, firstOfYear, today, parseAmount, cachedJson } from "@/lib/appfolio";
+import { fetchReport, fetchPvReport, firstOfYear, today, parseAmount, cachedJson } from "@/lib/appfolio";
 import { ENTITY_PROPERTY_IDS, classifyEntityByName } from "@/lib/appfolio-entities";
 import { getOwnership } from "@/lib/ownership";
+import { PV_COMMUNITIES } from "@/lib/pv-communities";
 import { NextRequest } from "next/server";
 
 interface RentRollRow {
@@ -200,8 +201,8 @@ export async function GET(request: NextRequest) {
     const bigFilter = { properties_ids: [ENTITY_PROPERTY_IDS.big] };
     const hotelFilter = { properties_ids: [ENTITY_PROPERTY_IDS.hotel] };
 
-    // All API calls in parallel (5 calls, well within 7/15s rate limit)
-    const [bigIS, hotelIS, glRows, rentRows, arRows] = await Promise.all([
+    // All API calls in parallel (BIG database + PV database)
+    const [bigIS, hotelIS, glRows, rentRows, arRows, pvIS] = await Promise.all([
       fetchReport<IncomeRow>("income_statement", {
         posted_on_from: ytdFrom,
         posted_on_to: ytdTo,
@@ -218,6 +219,10 @@ export async function GET(request: NextRequest) {
       }),
       fetchReport<RentRollRow>("rent_roll"),
       fetchReport<ArRow>("aged_receivables_detail", { as_of_date: ytdTo }),
+      fetchPvReport<IncomeRow>("income_statement", {
+        posted_on_from: ytdFrom,
+        posted_on_to: ytdTo,
+      }).catch(() => [] as IncomeRow[]),
     ]);
 
     // BIG P&L from income_statement
@@ -335,6 +340,13 @@ export async function GET(request: NextRequest) {
     // Fee reconciliation from GL
     const feeRecon = computeFeeReconciliationFromGL(glRows, ytdFrom, ytdTo);
 
+    // Park Vista P&L from PV AppFolio
+    const pvTotals = extractSectionTotals(pvIS);
+    const pvPct = ownershipView ? getOwnership("Park Vista") : 1;
+    const pvIncome = pvTotals.totalIncome * pvPct;
+    const pvExpenses = pvTotals.totalExpenses * pvPct;
+    const pvNet = pvIncome - pvExpenses;
+
     const jrwPropertyCount = 17;
     const bigManagedCount = 14;
 
@@ -361,6 +373,13 @@ export async function GET(request: NextRequest) {
         gop: Math.round(hotelPnL.noi * hotelPct),
         netIncome: Math.round(hotelPnL.netIncome * hotelPct),
         monthlyTrend: hotelTrend,
+      },
+      pv: {
+        totalIncome: Math.round(pvIncome),
+        totalExpenses: Math.round(pvExpenses),
+        netIncome: Math.round(pvNet),
+        communityCount: PV_COMMUNITIES.length,
+        ownershipPct: ownershipView ? 51 : 100,
       },
       alerts: {
         leasesExpiring,

@@ -2,6 +2,10 @@ const APPFOLIO_CLIENT_ID = (process.env.APPFOLIO_CLIENT_ID || "").trim();
 const APPFOLIO_CLIENT_SECRET = (process.env.APPFOLIO_CLIENT_SECRET || "").trim();
 const APPFOLIO_DATABASE = (process.env.APPFOLIO_DATABASE || "").trim();
 
+const PV_CLIENT_ID = (process.env.PV_APPFOLIO_CLIENT_ID || "").trim();
+const PV_CLIENT_SECRET = (process.env.PV_APPFOLIO_CLIENT_SECRET || "").trim();
+const PV_DATABASE = (process.env.PV_APPFOLIO_DATABASE || "").trim();
+
 const cache = new Map<string, { data: unknown; expires: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -58,6 +62,52 @@ export async function fetchReport<T = Record<string, unknown>>(
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`AppFolio API error ${res.status} on ${reportName}: ${text}`);
+  }
+
+  const data = await res.json();
+  const rows = Array.isArray(data) ? data : (data.results || []);
+
+  cache.set(cacheKey, { data: rows, expires: Date.now() + CACHE_TTL });
+  return rows as T[];
+}
+
+/**
+ * Fetch a report from the Park Vista AppFolio database.
+ * Same interface as fetchReport but uses PV_APPFOLIO_* credentials.
+ */
+export async function fetchPvReport<T = Record<string, unknown>>(
+  reportName: string,
+  body: Record<string, unknown> = {},
+  bypassCache = false
+): Promise<T[]> {
+  const cacheKey = `pv:${reportName}:${JSON.stringify(body)}`;
+
+  if (!bypassCache) {
+    const cached = cache.get(cacheKey);
+    if (cached && Date.now() < cached.expires) {
+      return cached.data as T[];
+    }
+  }
+
+  const credentials = Buffer.from(
+    `${PV_CLIENT_ID}:${PV_CLIENT_SECRET}`
+  ).toString("base64");
+
+  const res = await fetch(
+    `https://${PV_DATABASE}.appfolio.com/api/v2/reports/${reportName}.json`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${credentials}`,
+      },
+      body: JSON.stringify({ ...body, paginate_results: false }),
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`PV AppFolio API error ${res.status} on ${reportName}: ${text}`);
   }
 
   const data = await res.json();

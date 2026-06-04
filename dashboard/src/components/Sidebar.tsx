@@ -13,13 +13,17 @@ const jrwNav = [
   { href: "/rent-roll", label: "Rent Roll", icon: "🏠" },
   { href: "/vendors", label: "Vendors", icon: "🔧" },
   { href: "/banking", label: "Banking", icon: "🏦" },
-  { href: "/hotel/dashboard", label: "Hotel Dashboard", icon: "🛎️" },
-  { href: "/hotel/pnl", label: "Hotel P&L", icon: "📋" },
 ];
 
 const bigNav = [
   { href: "/big/dashboard", label: "Management Dashboard", icon: "deer" },
   { href: "/big/pnl", label: "P&L Statement", icon: "📋" },
+];
+
+const pvNav = [
+  { href: "/pv/dashboard", label: "PV Dashboard", icon: "🏠" },
+  { href: "/pv/communities", label: "Communities", icon: "🏘️" },
+  { href: "/pv/financials", label: "Financial Reports", icon: "💰" },
 ];
 
 const salesNav = [
@@ -106,6 +110,10 @@ export function Sidebar() {
         <div className="my-4 border-t border-gray-600" />
 
         <NavSection label="Blackdeer I.G." items={bigNav} pathname={pathname} />
+
+        <div className="my-4 border-t border-gray-600" />
+
+        <NavSection label="Park Vista" items={pvNav} pathname={pathname} badge="51%" />
 
         <div className="my-4 border-t border-gray-600" />
 
