@@ -217,7 +217,7 @@ export async function GET() {
           entry.waltDenominator += annualRent;
 
           // Lease-expiration exposure: rent expiring within 12 months
-          if (leaseEnd <= oneYearOut) {
+          if (leaseEnd >= now && leaseEnd <= oneYearOut) {
             entry.expiringRent12mo += annualRent;
           }
         }

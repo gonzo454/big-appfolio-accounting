@@ -264,14 +264,14 @@ export function gradeProperty(metrics: {
   const t = STATUS_THRESHOLDS;
 
   // Concern triggers (worst-of)
-  if (metrics.dscr < t.dscr.watch) return "Concern";
+  if (metrics.dscr > 0 && metrics.dscr < t.dscr.watch) return "Concern";
   if (metrics.netAfterDebt < 0) return "Concern";
   if (metrics.occupancyRate < bench.occupancyTarget - t.occupancyGap.concern) return "Concern";
   if (metrics.collectionRate < t.collection.watch) return "Concern";
   if (metrics.leaseExposure12mo > t.leaseExposure.concern) return "Concern";
 
   // Watch triggers
-  if (metrics.dscr < t.dscr.strong) return "Watch";
+  if (metrics.dscr > 0 && metrics.dscr < t.dscr.strong) return "Watch";
   if (metrics.oer > bench.oerHigh + t.oerOvershoot.watch) return "Watch";
   if (metrics.occupancyRate < bench.occupancyTarget - t.occupancyGap.watch) return "Watch";
   if (metrics.collectionRate < t.collection.strong) return "Watch";
