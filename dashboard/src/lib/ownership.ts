@@ -84,6 +84,14 @@ export const OWNERSHIP: Record<string, OwnershipEntry> = {
     pfsName: "Blackdeer Investment Group",
   },
 
+  // Park Vista Senior Housing Management — Joe 51%, Julie Lonegran 49%
+  "Park Vista": {
+    joePct: 0.51,
+    gstPct: 0.0,
+    combined: 0.51,
+    pfsName: "Park Vista Senior Housing (51% Joe)",
+  },
+
   // Badger Hotel
   "Badger Hotel Group": {
     joePct: 0.64637,
