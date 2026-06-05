@@ -26,6 +26,10 @@ const pvNav = [
   { href: "/pv/financials", label: "Financial Reports", icon: "💰" },
 ];
 
+const badgerRealtyNav = [
+  { href: "/badger-realty", label: "Overview", icon: "🏘️" },
+];
+
 const ownerCapitalNav = [
   { href: "/loans/station-955", label: "Station 955 Loan", icon: "📝" },
 ];
@@ -118,6 +122,10 @@ export function Sidebar() {
         <div className="my-4 border-t border-gray-600" />
 
         <NavSection label="Park Vista" items={pvNav} pathname={pathname} badge="51%" />
+
+        <div className="my-4 border-t border-gray-600" />
+
+        <NavSection label="Badger Realty" items={badgerRealtyNav} pathname={pathname} />
 
         <div className="my-4 border-t border-gray-600" />
 
