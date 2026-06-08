@@ -186,8 +186,8 @@ export default function KPIDashboardPage() {
         <MetricCard
           label="Avg OER"
           value={`${p.oer}%`}
-          sub="Target: 35–50% (blended)"
-          color={p.oer <= 50 ? "text-emerald-600" : p.oer <= 60 ? "text-amber-600" : "text-red-600"}
+          sub="Target: 40–60% (blended)"
+          color={p.oer <= 60 ? "text-emerald-600" : p.oer <= 70 ? "text-amber-600" : "text-red-600"}
         />
       </div>
 
