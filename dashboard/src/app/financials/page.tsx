@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef, useCallback, Fragment } from "react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { ExportButtons } from "@/components/ExportButtons";
+import { CollapsiblePanel } from "@/components/CollapsiblePanel";
+import { useInteractiveColumns, ColumnDef } from "@/hooks/useInteractiveColumns";
 
 type Tab = "pnl" | "cashflow" | "budget";
 
@@ -424,6 +426,11 @@ interface DetailTransaction {
   amount: number;
 }
 
+const ACCOUNT_COLS: ColumnDef[] = [
+  { key: "account", label: "Account", align: "left", minWidth: 120 },
+  { key: "amount", label: "Amount", align: "right", minWidth: 80 },
+];
+
 function AccountTable({ title, accounts, dateFrom, dateTo }: { title: string; accounts: Account[]; dateFrom?: string; dateTo?: string }) {
   const isExpenseTable = title === "Expenses";
   const sorted = [...accounts].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
@@ -431,6 +438,7 @@ function AccountTable({ title, accounts, dateFrom, dateTo }: { title: string; ac
   const [detail, setDetail] = useState<DetailTransaction[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [expandedTotal, setExpandedTotal] = useState(0);
+  const { columns, widths, onResizeStart, onDragStart, onDragEnd, onDragOver, onDrop } = useInteractiveColumns(ACCOUNT_COLS);
 
   function toggleDrillDown(accountNum: string, accountAmount: number) {
     if (expanded === accountNum) {
@@ -457,19 +465,36 @@ function AccountTable({ title, accounts, dateFrom, dateTo }: { title: string; ac
   const total = Math.abs(sorted.reduce((s, a) => s + a.amount, 0));
 
   return (
-    <div id={`section-${title.toLowerCase()}`} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
+    <CollapsiblePanel
+      title={title}
+      id={`section-${title.toLowerCase()}`}
+      headerRight={
         <p className={`text-sm font-mono font-semibold ${isExpenseTable ? "text-red-600" : "text-green-600"}`}>
           ${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </p>
-      </div>
-      <div className="max-h-[500px] overflow-y-auto">
-        <table className="w-full text-sm">
+      }
+    >
+        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
-              <th className="text-left px-6 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
-              <th className="text-right px-6 py-2 font-semibold text-gray-600 dark:text-gray-300">Amount</th>
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className={`${col.align === "right" ? "text-right" : "text-left"} px-6 py-2 font-semibold text-gray-600 dark:text-gray-300 relative select-none`}
+                  style={{ width: widths[col.key] }}
+                  draggable
+                  onDragStart={(e) => onDragStart(col.key, e)}
+                  onDragEnd={onDragEnd}
+                  onDragOver={onDragOver}
+                  onDrop={(e) => onDrop(col.key, e)}
+                >
+                  <span className="cursor-grab">{col.label}</span>
+                  <span
+                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400"
+                    onMouseDown={(e) => onResizeStart(col.key, e)}
+                  />
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -550,8 +575,7 @@ function AccountTable({ title, accounts, dateFrom, dateTo }: { title: string; ac
             })}
           </tbody>
         </table>
-      </div>
-    </div>
+    </CollapsiblePanel>
   );
 }
 
@@ -577,15 +601,17 @@ function CashFlowTab({ data }: { data: CashFlowData }) {
         { title: "Investing Activities", section: data.investing, color: "purple" },
         { title: "Financing Activities", section: data.financing, color: "emerald" },
       ] as const).map((s) => (
-        <div
+        <CollapsiblePanel
           key={s.title}
-          className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden border-l-4 ${borderColors[s.color] || "border-l-gray-500"}`}
+          title={s.title}
+          normalMaxHeight={320}
+          className={`border-l-4 ${borderColors[s.color] || "border-l-gray-500"}`}
+          headerRight={
+            <p className={`text-sm font-mono font-semibold ${s.section.total >= 0 ? "text-green-600" : "text-red-600"}`}>
+              {fmtK(s.section.total)}
+            </p>
+          }
         >
-          <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h3 className="font-semibold text-gray-900 dark:text-white">{s.title}</h3>
-            {"subtitle" in s && s.subtitle && <p className="text-xs text-gray-500 mt-0.5">{s.subtitle}</p>}
-          </div>
-          <div className="max-h-80 overflow-y-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
                 <tr>
@@ -615,8 +641,7 @@ function CashFlowTab({ data }: { data: CashFlowData }) {
                 </tr>
               </tfoot>
             </table>
-          </div>
-        </div>
+        </CollapsiblePanel>
       ))}
     </>
   );
@@ -818,22 +843,41 @@ function OperatingKpiCard({
   );
 }
 
+const BUDGET_COLS: ColumnDef[] = [
+  { key: "account", label: "Account", align: "left", minWidth: 120 },
+  { key: "actual", label: "Actual", align: "right", minWidth: 60 },
+  { key: "budget", label: "Budget", align: "right", minWidth: 60 },
+  { key: "variance", label: "Variance", align: "right", minWidth: 60 },
+  { key: "percent", label: "%", align: "right", minWidth: 40 },
+];
+
 function BudgetTable({ title, accounts }: { title: string; accounts: BudgetAccount[] }) {
   const sorted = [...accounts].sort((a, b) => Math.abs(b.actual) - Math.abs(a.actual));
+  const { columns, widths, onResizeStart, onDragStart, onDragEnd, onDragOver, onDrop } = useInteractiveColumns(BUDGET_COLS);
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-        <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
-      </div>
+    <CollapsiblePanel title={title}>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
-              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Actual</th>
-              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Budget</th>
-              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Variance</th>
-              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">%</th>
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className={`${col.align === "right" ? "text-right" : "text-left"} px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 relative select-none`}
+                  style={{ width: widths[col.key] }}
+                  draggable
+                  onDragStart={(e) => onDragStart(col.key, e)}
+                  onDragEnd={onDragEnd}
+                  onDragOver={onDragOver}
+                  onDrop={(e) => onDrop(col.key, e)}
+                >
+                  <span className="cursor-grab">{col.label}</span>
+                  <span
+                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400"
+                    onMouseDown={(e) => onResizeStart(col.key, e)}
+                  />
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -855,7 +899,7 @@ function BudgetTable({ title, accounts }: { title: string; accounts: BudgetAccou
           </tbody>
         </table>
       </div>
-    </div>
+    </CollapsiblePanel>
   );
 }
 
@@ -877,27 +921,45 @@ function YoYCard({ label, current, lastYear, change, invertColor }: { label: str
   );
 }
 
+const YOY_COLS: ColumnDef[] = [
+  { key: "account", label: "Account", align: "left", minWidth: 120 },
+  { key: "thisMonth", label: "This Month", align: "right", minWidth: 60 },
+  { key: "ytd", label: "YTD", align: "right", minWidth: 60 },
+  { key: "lastYear", label: "Last Year YTD", align: "right", minWidth: 60 },
+  { key: "yoy", label: "YoY Change", align: "right", minWidth: 60 },
+];
+
 function YoYTable({ title, accounts, invertColor, mode }: { title: string; accounts: BudgetAccount[]; invertColor?: boolean; mode: "all" | "operating" }) {
   const sorted = [...accounts]
     .filter((a) => (a.ytd || 0) !== 0 || (a.lastYearYtd || 0) !== 0)
     .sort((a, b) => Math.abs(b.ytd || 0) - Math.abs(a.ytd || 0));
+  const { columns, widths, onResizeStart, onDragStart, onDragEnd, onDragOver, onDrop } = useInteractiveColumns(YOY_COLS);
 
   if (sorted.length === 0) return null;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-        <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
-      </div>
-      <div className="max-h-96 overflow-y-auto">
-        <table className="w-full text-sm">
+    <CollapsiblePanel title={title} normalMaxHeight={384}>
+        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
-              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
-              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">This Month</th>
-              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">YTD</th>
-              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Last Year YTD</th>
-              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">YoY Change</th>
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className={`${col.align === "right" ? "text-right" : "text-left"} px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 relative select-none`}
+                  style={{ width: widths[col.key] }}
+                  draggable
+                  onDragStart={(e) => onDragStart(col.key, e)}
+                  onDragEnd={onDragEnd}
+                  onDragOver={onDragOver}
+                  onDrop={(e) => onDrop(col.key, e)}
+                >
+                  <span className="cursor-grab">{col.label}</span>
+                  <span
+                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400"
+                    onMouseDown={(e) => onResizeStart(col.key, e)}
+                  />
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -939,8 +1001,7 @@ function YoYTable({ title, accounts, invertColor, mode }: { title: string; accou
             })}
           </tbody>
         </table>
-      </div>
-    </div>
+    </CollapsiblePanel>
   );
 }
 
@@ -962,24 +1023,42 @@ function SimpleKpiCard({ label, value, color, href }: { label: string; value: st
 
 function FinancialsCapitalPanel({ accounts, total }: { accounts: CapitalAccount[]; total: number }) {
   const sorted = accounts.slice().sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+  const { columns, widths, onResizeStart, onDragStart, onDragEnd, onDragOver, onDrop } = useInteractiveColumns(ACCOUNT_COLS);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900 dark:text-white">Capital Activity</h3>
+    <CollapsiblePanel
+      title="Capital Activity"
+      normalMaxHeight={300}
+      headerRight={
         <p className={`text-sm font-mono font-semibold ${total >= 0 ? "text-blue-600" : "text-orange-600"}`}>
           {total >= 0 ? "" : "-"}${Math.abs(total).toLocaleString(undefined, { maximumFractionDigits: 0 })}
           <span className="text-xs text-gray-500 ml-2">
             {total >= 0 ? "net contributions" : "net distributions"}
           </span>
         </p>
-      </div>
-      <div className="max-h-[300px] overflow-y-auto">
-        <table className="w-full text-sm">
+      }
+    >
+        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
-              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
-              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Amount</th>
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className={`${col.align === "right" ? "text-right" : "text-left"} px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 relative select-none`}
+                  style={{ width: widths[col.key] }}
+                  draggable
+                  onDragStart={(e) => onDragStart(col.key, e)}
+                  onDragEnd={onDragEnd}
+                  onDragOver={onDragOver}
+                  onDrop={(e) => onDrop(col.key, e)}
+                >
+                  <span className="cursor-grab">{col.label}</span>
+                  <span
+                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400"
+                    onMouseDown={(e) => onResizeStart(col.key, e)}
+                  />
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -1002,7 +1081,6 @@ function FinancialsCapitalPanel({ accounts, total }: { accounts: CapitalAccount[
             })}
           </tbody>
         </table>
-      </div>
-    </div>
+    </CollapsiblePanel>
   );
 }

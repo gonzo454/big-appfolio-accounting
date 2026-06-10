@@ -4,6 +4,13 @@ import { useEffect, useState, useRef, useCallback, Fragment } from "react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { ProfitGauge } from "@/components/ProfitGauge";
+import { CollapsiblePanel } from "@/components/CollapsiblePanel";
+import { useInteractiveColumns, ColumnDef } from "@/hooks/useInteractiveColumns";
+
+const ACCT_COLS: ColumnDef[] = [
+  { key: "account", label: "Account", align: "left", minWidth: 120 },
+  { key: "amount", label: "Amount", align: "right", minWidth: 80 },
+];
 
 interface Summary {
   totalRevenue: number;
@@ -360,25 +367,37 @@ function AccountPanel({
     .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
 
   const colorClass = isExpense ? "text-red-600" : "text-green-600";
+  const { columns, widths, onResizeStart, onDragStart, onDragEnd, onDragOver, onDrop } = useInteractiveColumns(ACCT_COLS);
 
   return (
-    <div id={`section-${title.toLowerCase()}`} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900 dark:text-white">
-          {title}
-        </h3>
+    <CollapsiblePanel
+      title={title}
+      id={`section-${title.toLowerCase()}`}
+      headerRight={
         <p className={`text-sm font-mono font-semibold ${colorClass}`}>{fmtShort(total)}</p>
-      </div>
-      <div className="max-h-[500px] overflow-y-auto">
-        <table className="w-full text-sm">
+      }
+    >
+        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
-              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                Account
-              </th>
-              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                Amount
-              </th>
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className={`${col.align === "right" ? "text-right" : "text-left"} px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 relative select-none`}
+                  style={{ width: widths[col.key] }}
+                  draggable
+                  onDragStart={(e) => onDragStart(col.key, e)}
+                  onDragEnd={onDragEnd}
+                  onDragOver={onDragOver}
+                  onDrop={(e) => onDrop(col.key, e)}
+                >
+                  <span className="cursor-grab">{col.label}</span>
+                  <span
+                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400"
+                    onMouseDown={(e) => onResizeStart(col.key, e)}
+                  />
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -523,8 +542,7 @@ function AccountPanel({
             )}
           </tbody>
         </table>
-      </div>
-    </div>
+    </CollapsiblePanel>
   );
 }
 
@@ -565,24 +583,42 @@ function KpiCard({
 
 function CapitalPanel({ accounts, total }: { accounts: CapitalAccount[]; total: number }) {
   const sorted = accounts.slice().sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+  const { columns, widths, onResizeStart, onDragStart, onDragEnd, onDragOver, onDrop } = useInteractiveColumns(ACCT_COLS);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900 dark:text-white">Capital Activity</h3>
+    <CollapsiblePanel
+      title="Capital Activity"
+      normalMaxHeight={300}
+      headerRight={
         <p className={`text-sm font-mono font-semibold ${total >= 0 ? "text-blue-600" : "text-orange-600"}`}>
           {total >= 0 ? "" : "-"}${Math.abs(total).toLocaleString(undefined, { maximumFractionDigits: 0 })}
           <span className="text-xs text-gray-500 ml-2">
             {total >= 0 ? "net contributions" : "net distributions"}
           </span>
         </p>
-      </div>
-      <div className="max-h-[300px] overflow-y-auto">
-        <table className="w-full text-sm">
+      }
+    >
+        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
-              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
-              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Amount</th>
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className={`${col.align === "right" ? "text-right" : "text-left"} px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 relative select-none`}
+                  style={{ width: widths[col.key] }}
+                  draggable
+                  onDragStart={(e) => onDragStart(col.key, e)}
+                  onDragEnd={onDragEnd}
+                  onDragOver={onDragOver}
+                  onDrop={(e) => onDrop(col.key, e)}
+                >
+                  <span className="cursor-grab">{col.label}</span>
+                  <span
+                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400"
+                    onMouseDown={(e) => onResizeStart(col.key, e)}
+                  />
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -605,7 +641,6 @@ function CapitalPanel({ accounts, total }: { accounts: CapitalAccount[]; total: 
             })}
           </tbody>
         </table>
-      </div>
-    </div>
+    </CollapsiblePanel>
   );
 }
