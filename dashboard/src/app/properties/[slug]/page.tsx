@@ -563,7 +563,7 @@ function MiniMetric({ label, value, target, good }: { label: string; value: stri
 }
 
 function BreakdownPanel({ title, accounts, total, color }: { title: string; accounts: Account[]; total: number; color: "emerald" | "red" }) {
-  const sorted = accounts.slice().sort((a, b) => b.amount - a.amount).slice(0, 8);
+  const sorted = accounts.slice().sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)).slice(0, 8);
   const barColor = color === "emerald" ? "bg-emerald-500" : "bg-red-400";
   const totalColor = color === "emerald" ? "text-emerald-600" : "text-red-600";
 
@@ -577,18 +577,23 @@ function BreakdownPanel({ title, accounts, total, color }: { title: string; acco
       </div>
       <div className="p-4">
         {sorted.map((a) => {
-          const pct = total > 0 ? (a.amount / total) * 100 : 0;
+          const absAmount = Math.abs(a.amount);
+          const pct = total > 0 ? (absAmount / total) * 100 : 0;
+          const isCredit = color === "red" && a.amount < 0;
           return (
             <div key={a.number} className="mb-3">
               <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-700 dark:text-gray-300 truncate mr-2">{a.name}</span>
-                <span className="font-mono text-gray-600 whitespace-nowrap">
-                  ${Math.abs(a.amount).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                <span className="text-gray-700 dark:text-gray-300 truncate mr-2">
+                  {a.name}
+                  {isCredit && <span className="text-green-600 text-xs ml-1">(credit)</span>}
+                </span>
+                <span className={`font-mono whitespace-nowrap ${isCredit ? "text-green-600" : "text-gray-600"}`}>
+                  {isCredit ? `($${absAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })})` : `$${absAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
                   <span className="text-gray-400 text-xs ml-1">({pct.toFixed(0)}%)</span>
                 </span>
               </div>
               <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                <div className={`h-full ${barColor} rounded-full`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                <div className={`h-full ${isCredit ? "bg-green-400" : barColor} rounded-full`} style={{ width: `${Math.min(pct, 100)}%` }} />
               </div>
             </div>
           );

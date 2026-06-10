@@ -202,8 +202,8 @@ export default function BigPnlPage() {
               a.section,
               a.name,
               a.number,
-              fmt(a.mtd),
-              fmt(a.ytd),
+              a.mtd < 0 ? `(${fmt(Math.abs(a.mtd))})` : fmt(a.mtd),
+              a.ytd < 0 ? `(${fmt(Math.abs(a.ytd))})` : fmt(a.ytd),
               fmt(a.lastYearAmount),
             ])}
           />
