@@ -1,9 +1,11 @@
 /*
  * Command Center service worker.
  * - /api GETs: stale-while-revalidate from local Cache Storage. Cached data
- *   renders instantly (and works fully offline); a network refresh with
- *   retry runs in the background. Cold requests retry transient failures
- *   before falling back to any cached copy.
+ *   renders instantly (and works fully offline); a network refresh runs in
+ *   the background. Retries are handled by the client-side apiFetch — the
+ *   SW only does caching so the two layers don't multiply retries.
+ * - Cache-warming requests (x-cache-warm header) always go to the network
+ *   so the server-side cache stays warm.
  * - Static assets: cache-first.
  * - Page navigations: network-first with offline fallback to cache.
  */
@@ -28,25 +30,6 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-async function fetchWithRetry(request, retries = 3, backoffMs = 1500) {
-  let lastRes = null;
-  let lastErr = null;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const res = await fetch(request.clone());
-      if (res.ok || (res.status < 500 && res.status !== 429)) return res;
-      lastRes = res;
-    } catch (e) {
-      lastErr = e;
-    }
-    if (attempt < retries) {
-      await new Promise((r) => setTimeout(r, backoffMs * (attempt + 1)));
-    }
-  }
-  if (lastRes) return lastRes;
-  throw lastErr;
-}
-
 async function putWithTimestamp(cache, request, response) {
   const headers = new Headers(response.headers);
   headers.set("sw-cached-at", String(Date.now()));
@@ -59,20 +42,31 @@ function cachedAge(response) {
   return at ? Date.now() - at : Infinity;
 }
 
-async function handleApi(request) {
+async function handleApi(event, request) {
   const cache = await caches.open(API_CACHE);
   const cached = await cache.match(request);
 
   const refresh = async () => {
-    const res = await fetchWithRetry(request);
+    const res = await fetch(request.clone());
     if (res.ok) await putWithTimestamp(cache, request, res.clone());
     return res;
   };
 
+  // Warming requests always hit the network so the server cache stays warm,
+  // and they refresh the local cache as a side effect.
+  if (request.headers.get("x-cache-warm")) {
+    try {
+      return await refresh();
+    } catch (e) {
+      if (cached) return cached;
+      throw e;
+    }
+  }
+
   if (cached && cachedAge(cached) < API_MAX_AGE_MS) {
     if (cachedAge(cached) > API_FRESH_MS) {
       // stale-while-revalidate: serve instantly, refresh in background
-      refresh().catch(() => {});
+      event.waitUntil(refresh().catch(() => {}));
     }
     return cached;
   }
@@ -120,7 +114,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (url.pathname.startsWith("/api/")) {
-    event.respondWith(handleApi(request));
+    event.respondWith(handleApi(event, request));
   } else if (
     url.pathname.startsWith("/_next/static/") ||
     /\.(png|jpg|jpeg|svg|ico|webp|woff2?)$/.test(url.pathname)
