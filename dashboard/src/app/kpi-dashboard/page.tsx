@@ -95,9 +95,10 @@ const statusColor = (s: string) => {
   return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
 };
 
-function propertyHref(name: string): string {
-  if (name === "Badger Hotel Group") return "/hotel/dashboard";
-  return `/properties/${encodeURIComponent(name)}`;
+function propertyHref(p: PropertyKPI): string {
+  if (p.businessEntity === "park_vista") return `/pv/communities/${p.slug}`;
+  if (p.name === "Badger Hotel Group") return "/hotel/dashboard";
+  return `/properties/${encodeURIComponent(p.name)}`;
 }
 
 export default function KPIDashboardPage() {
@@ -289,7 +290,7 @@ function PropertyTable({ title, subtitle, rows }: { title?: string; subtitle?: s
             {rows.map((c) => (
               <tr key={c.slug} className="hover:bg-gray-50 dark:hover:bg-gray-750">
                 <td className="px-4 py-3">
-                  <Link href={propertyHref(c.name)} className="text-[#E07B2A] hover:underline font-medium">
+                  <Link href={propertyHref(c)} className="text-[#E07B2A] hover:underline font-medium">
                     {c.name}
                   </Link>
                   {c.managedOnly && <span className="text-xs text-blue-400 ml-2">(managed)</span>}

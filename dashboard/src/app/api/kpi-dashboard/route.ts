@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
-import { fetchReport, firstOfMonth, firstOfQuarter, firstOfYear, today, parseAmount, cachedJson, centralNowExported } from "@/lib/appfolio";
+import { fetchReport, fetchPvReport, firstOfMonth, firstOfQuarter, firstOfYear, today, parseAmount, cachedJson, centralNowExported } from "@/lib/appfolio";
 import { ENTITY_PROPERTY_IDS } from "@/lib/appfolio-entities";
+import { PV_COMMUNITIES } from "@/lib/pv-communities";
 import { getOwnership } from "@/lib/ownership";
 import { getPropertyConfig, gradeProperty, BENCHMARKS, formatAssetClass, BUSINESS_ENTITY_LABELS, type BusinessEntity } from "@/lib/property-config";
 
@@ -28,6 +29,17 @@ interface IncomeRow {
   account_name?: string;
   account_number?: string;
   year_to_date?: string;
+  month_to_date?: string;
+}
+
+interface PvAccountTotalsRow {
+  property_name?: string;
+  net_amount?: string;
+}
+
+interface PvRentRollRow {
+  status?: string;
+  property_name?: string;
 }
 
 interface ARRow {
@@ -123,7 +135,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const results = await Promise.all(basePromises);
+    // --- Park Vista (separate AppFolio database) ---
+    const isMtdPeriod = rangeLabel === "MTD";
+    const isYtdPeriod = rangeLabel === "YTD" || qtdFrom === firstOfYear();
+    const pvPromises: [Promise<PvRentRollRow[]>, Promise<PvAccountTotalsRow[]>, Promise<IncomeRow[]>, Promise<IncomeRow[]>] = [
+      fetchPvReport<PvRentRollRow>("rent_roll").catch(() => []),
+      fetchPvReport<PvAccountTotalsRow>("account_totals", {
+        posted_on_from: qtdFrom,
+        posted_on_to: qtdTo,
+      }).catch(() => []),
+      fetchPvReport<IncomeRow>("income_statement", {
+        posted_on_from: qtdFrom,
+        posted_on_to: qtdTo,
+      }).catch(() => []),
+      // Baseline for QTD/custom ranges (YTD subtraction)
+      isMtdPeriod || isYtdPeriod
+        ? Promise.resolve([] as IncomeRow[])
+        : fetchPvReport<IncomeRow>("income_statement", {
+            posted_on_from: dayBefore(qtdFrom).slice(0, 8) + "01",
+            posted_on_to: dayBefore(qtdFrom),
+          }).catch(() => []),
+    ];
+
+    const [results, pvResults] = await Promise.all([Promise.all(basePromises), Promise.all(pvPromises)]);
+    const [pvRentRows, pvAccountRows, pvISRows, pvISBaseline] = pvResults;
     const rentRows = results[0] as RentRollRow[];
     const glRows = results[1] as GLRow[];
     const ytdGlRows = results[2] as GLRow[];
@@ -476,8 +511,136 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // Group by entity
-    const entityOrder: BusinessEntity[] = ["jrw", "big", "badger_hotel", "park_vista", "badger_realty"];
+    // --- Park Vista section (from PV AppFolio database) ---
+    function extractPvIsTotals(rows: IncomeRow[], column: "year_to_date" | "month_to_date") {
+      let income = 0;
+      let expenses = 0;
+      for (const row of rows) {
+        const n = (row.account_name || "").toLowerCase().trim();
+        const amount = parseAmount(row[column]);
+        if (n === "total income") income = amount;
+        if (n === "total expense" || n === "total expenses") expenses = Math.abs(amount);
+      }
+      return { income, expenses };
+    }
+
+    let pvIncome = 0;
+    let pvExpenses = 0;
+    if (isMtdPeriod || isYtdPeriod) {
+      const t = extractPvIsTotals(pvISRows, isMtdPeriod ? "month_to_date" : "year_to_date");
+      pvIncome = t.income;
+      pvExpenses = t.expenses;
+    } else {
+      const e = extractPvIsTotals(pvISRows, "year_to_date");
+      const s = extractPvIsTotals(pvISBaseline, "year_to_date");
+      pvIncome = e.income - s.income;
+      pvExpenses = e.expenses - s.expenses;
+    }
+
+    const pvCommunityFin = new Map<string, { income: number; expenses: number }>();
+    for (const row of pvAccountRows) {
+      const n = (row.property_name || "").trim();
+      if (!n) continue;
+      if (!pvCommunityFin.has(n)) pvCommunityFin.set(n, { income: 0, expenses: 0 });
+      const net = parseAmount(row.net_amount);
+      const entry = pvCommunityFin.get(n)!;
+      if (net > 0) entry.income += net;
+      else entry.expenses += Math.abs(net);
+    }
+
+    const pvOccByCommunity = new Map<string, { total: number; occupied: number }>();
+    for (const r of pvRentRows) {
+      const n = (r.property_name || "").trim();
+      if (!n) continue;
+      if (!pvOccByCommunity.has(n)) pvOccByCommunity.set(n, { total: 0, occupied: 0 });
+      const entry = pvOccByCommunity.get(n)!;
+      entry.total++;
+      const st = (r.status || "").toLowerCase();
+      if (st.includes("current") || st.includes("occupied")) entry.occupied++;
+    }
+
+    const pvBench = BENCHMARKS.residential;
+    const pvOwnership = getOwnership("Park Vista");
+    const pvProperties = PV_COMMUNITIES.map((c) => {
+      const fin = pvCommunityFin.get(c.name) || { income: 0, expenses: 0 };
+      const occ = pvOccByCommunity.get(c.name) || { total: 0, occupied: 0 };
+      const revenue = Math.round(fin.income);
+      const expenses = Math.round(fin.expenses);
+      const noi = revenue - expenses;
+      const monthlyNoi = monthsElapsed > 0 ? noi / monthsElapsed : noi;
+      return {
+        name: c.name,
+        slug: c.slug,
+        assetClass: "residential" as const,
+        assetClassLabel: "Senior Housing",
+        businessEntity: "park_vista" as BusinessEntity,
+        managedOnly: false,
+        ownershipPct: pvOwnership,
+        revenue,
+        expenses,
+        noi,
+        noiMargin: revenue > 0 ? Math.round((noi / revenue) * 1000) / 10 : 0,
+        netAfterDebt: null,
+        totalUnits: occ.total,
+        occupied: occ.occupied,
+        vacant: occ.total - occ.occupied,
+        occupancyRate: occ.total > 0 ? Math.round((occ.occupied / occ.total) * 100) : 0,
+        totalSqft: 0,
+        occupiedSqft: 0,
+        vacancyLoss: 0,
+        debtService: 0,
+        dscr: 0,
+        oer: revenue > 0 ? Math.round((expenses / revenue) * 1000) / 10 : 0,
+        walt: null,
+        leaseExposure12mo: 0,
+        rentPerSf: null,
+        collectionRate: 100,
+        delinquent: 0,
+        status: monthlyNoi > 5000 ? "Strong" as const : monthlyNoi < -5000 ? "Review" as const : "Stable" as const,
+        targets: {
+          oer: `${pvBench.oerLow}–${pvBench.oerHigh}%`,
+          noiMargin: `${pvBench.noiMarginLow}–${pvBench.noiMarginHigh}%`,
+          dscrMin: pvBench.dscrMin,
+          waltYears: pvBench.waltYears,
+          occupancy: pvBench.occupancyTarget,
+        },
+      };
+    }).filter((c) => c.revenue > 0 || c.totalUnits > 0)
+      .sort((a, b) => b.revenue - a.revenue);
+
+    const pvRevenue = Math.round(pvIncome);
+    const pvNoi = Math.round(pvIncome - pvExpenses);
+    const pvTotalUnits = pvProperties.reduce((s, c) => s + c.totalUnits, 0);
+    const pvOccupied = pvProperties.reduce((s, c) => s + c.occupied, 0);
+    const pvSection = pvProperties.length > 0 || pvRevenue !== 0 ? {
+      entity: "park_vista" as BusinessEntity,
+      label: BUSINESS_ENTITY_LABELS.park_vista,
+      summary: {
+        revenue: pvRevenue,
+        noi: pvNoi,
+        noiMargin: pvRevenue > 0 ? Math.round((pvNoi / pvRevenue) * 1000) / 10 : 0,
+        occupancyRate: pvTotalUnits > 0 ? Math.round((pvOccupied / pvTotalUnits) * 100) : 0,
+        totalUnits: pvTotalUnits,
+        occupied: pvOccupied,
+        vacant: pvTotalUnits - pvOccupied,
+        totalSqft: 0,
+        occupiedSqft: 0,
+        vacancyLoss: 0,
+        oer: pvRevenue > 0 ? Math.round((Math.round(pvExpenses) / pvRevenue) * 1000) / 10 : 0,
+        dscr: 0,
+        debtService: 0,
+        walt: null,
+        delinquent: 0,
+        propertyCount: pvProperties.length,
+        reviewCount: pvProperties.filter((c) => c.status === "Review").length,
+        stableCount: pvProperties.filter((c) => c.status === "Stable").length,
+        strongCount: pvProperties.filter((c) => c.status === "Strong").length,
+      },
+      properties: pvProperties,
+    } : null;
+
+    // Group by entity — Park Vista leads (biggest earner)
+    const entityOrder: BusinessEntity[] = ["jrw", "big", "badger_hotel", "badger_realty"];
     const sections = entityOrder
       .map((entity) => {
         const entityProps = activeProperties
@@ -496,6 +659,8 @@ export async function GET(request: NextRequest) {
         };
       })
       .filter(Boolean);
+
+    if (pvSection) sections.unshift(pvSection);
 
     // Overall portfolio totals (backwards compat)
     const portfolioSummary = computeEntitySummary(activeProperties);
