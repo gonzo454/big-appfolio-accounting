@@ -86,3 +86,23 @@ aside nav::-webkit-scrollbar-thumb {
 aside nav::-webkit-scrollbar-thumb:hover {
   background: #c96a22;
 }
+
+/* Loading indicator */
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+.animate-loading-bar {
+  animation: loading-bar 1.2s ease-in-out infinite;
+}
+@keyframes loading-dots {
+  0% { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75% { content: "..."; }
+}
+.loading-dots::after {
+  display: inline-block;
+  content: "...";
+  animation: loading-dots 1.5s steps(1) infinite;
+}

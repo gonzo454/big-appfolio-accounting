@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/LoadingState";
 import { useEffect, useState, useRef, Fragment } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -277,7 +278,7 @@ export default function PropertyDetailPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-gray-500">Loading...</div>
+        <LoadingState />
       ) : error ? (
         <div className="text-center py-20 text-red-500">{error}</div>
       ) : data ? (

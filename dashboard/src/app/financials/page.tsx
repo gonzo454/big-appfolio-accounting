@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/LoadingState";
 import { useEffect, useState, useRef, useCallback, Fragment } from "react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { ExportButtons } from "@/components/ExportButtons";
@@ -382,7 +383,7 @@ export default function FinancialsPage() {
       )}
 
       {loading ? (
-        <div className="text-center py-20 text-gray-500">Loading...</div>
+        <LoadingState />
       ) : (
         <div className={`space-y-6 ${refreshing ? "opacity-75 transition-opacity" : ""}`}>
           {activeTab === "pnl" && pnlData && <PnlTab data={pnlData} />}

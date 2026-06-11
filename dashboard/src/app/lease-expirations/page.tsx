@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/LoadingState";
 import { useEffect, useState, useRef } from "react";
 import { ExportButtons } from "@/components/ExportButtons";
 
@@ -84,7 +85,7 @@ export default function LeaseExpirationsPage() {
       })()}
 
       {loading ? (
-        <div className="text-center py-20 text-gray-500">Loading...</div>
+        <LoadingState />
       ) : (
         <>
           {/* Summary */}

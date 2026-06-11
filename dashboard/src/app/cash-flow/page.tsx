@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/LoadingState";
 import { useEffect, useState, useRef, Fragment } from "react";
 import { ExportButtons } from "@/components/ExportButtons";
 
@@ -98,7 +99,7 @@ export default function CashFlowPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-gray-500">Loading...</div>
+        <LoadingState />
       ) : data ? (
         <>
           {/* Summary Cards */}
