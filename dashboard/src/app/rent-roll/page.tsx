@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/LoadingState";
 import { useEffect, useState, useRef } from "react";
 import { ExportButtons } from "@/components/ExportButtons";
 
@@ -80,7 +81,7 @@ export default function RentRollPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-gray-500">Loading...</div>
+        <LoadingState />
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/LoadingState";
 import { useEffect, useState, useRef, useCallback, Fragment } from "react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { ExportButtons } from "@/components/ExportButtons";
@@ -173,7 +174,7 @@ export default function HotelPnlPage() {
       )}
 
       {loading ? (
-        <div className="text-center py-20 text-gray-500">Loading...</div>
+        <LoadingState />
       ) : !summary ? (
         <div className="text-center py-20 text-gray-500">No data available</div>
       ) : (

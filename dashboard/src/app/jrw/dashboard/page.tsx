@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/LoadingState";
 import { useEffect, useState, useRef } from "react";
 import { ProfitGauge } from "@/components/ProfitGauge";
 import { DateRangePicker } from "@/components/DateRangePicker";
@@ -231,7 +232,7 @@ export default function ExecutiveDashboard() {
       )}
 
       {loading ? (
-        <div className="text-center py-20 text-gray-500">Loading...</div>
+        <LoadingState />
       ) : (
         <div className={refreshing ? "opacity-75 transition-opacity" : ""}>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

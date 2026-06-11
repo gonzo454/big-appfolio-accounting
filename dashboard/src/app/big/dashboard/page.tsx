@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/LoadingState";
 import { useEffect, useState, useRef, useCallback, Fragment } from "react";
 import { ExportButtons } from "@/components/ExportButtons";
 import { DateRangePicker } from "@/components/DateRangePicker";
@@ -112,7 +113,7 @@ export default function BigDashboardPage() {
       if (period) params.set("period", period);
       const qs = params.toString() ? `?${params.toString()}` : "";
       fetch(`/api/big-management${qs}`)
-        .then((r) => r.json())
+        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
         .then((d) => {
           const data: BigDashCache = {
             summary: d.summary || null,
@@ -137,8 +138,9 @@ export default function BigDashboardPage() {
     if (dataCache.current.has(key)) return;
     const params = new URLSearchParams({ from, to, period });
     fetch(`/api/big-management?${params.toString()}`)
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((d) => {
+        if (!d.summary) return;
         dataCache.current.set(key, {
           summary: d.summary || null,
           revenueAccounts: d.revenueAccounts || [],
@@ -226,7 +228,7 @@ export default function BigDashboardPage() {
       )}
 
       {loading ? (
-        <div className="text-center py-20 text-gray-500">Loading...</div>
+        <LoadingState />
       ) : !summary ? (
         <div className="text-center py-20 text-gray-500">
           No data available

@@ -18,7 +18,7 @@ export function useCachedFetch<T>() {
 
       const res = await fetch(url);
       const data = await res.json();
-      cache.current.set(key, data);
+      if (res.ok) cache.current.set(key, data);
       return data;
     },
     []
@@ -33,7 +33,7 @@ export function useCachedFetch<T>() {
       const key = cacheKey || url;
       if (cache.current.has(key)) return;
       fetch(url)
-        .then((r) => r.json())
+        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
         .then((data) => cache.current.set(key, data))
         .catch(() => {});
     },

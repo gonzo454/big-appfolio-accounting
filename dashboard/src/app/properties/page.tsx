@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/LoadingState";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 
@@ -40,7 +41,7 @@ export default function PropertiesPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-gray-500">Loading...</div>
+        <LoadingState />
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

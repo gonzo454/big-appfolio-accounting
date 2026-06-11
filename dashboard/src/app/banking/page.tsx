@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/LoadingState";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { usePlaidLink } from "react-plaid-link";
 import { ExportButtons } from "@/components/ExportButtons";
@@ -290,7 +291,7 @@ export default function BankingPage() {
   ]);
 
   if (configured === null) {
-    return <div className="text-center py-20 text-gray-500">Loading...</div>;
+    return <LoadingState />;
   }
 
   return (

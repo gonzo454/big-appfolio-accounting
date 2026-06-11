@@ -1,5 +1,6 @@
 "use client";
 
+import { LoadingState } from "@/components/LoadingState";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { DateRangePicker } from "@/components/DateRangePicker";
@@ -160,7 +161,7 @@ export default function KPIDashboardPage() {
     fetchData(from, to, period);
   }
 
-  if (loading && !data) return <div className="text-center py-20 text-gray-500">Loading KPI Dashboard...</div>;
+  if (loading && !data) return <LoadingState />;
   if (!data) return <div className="text-center py-20 text-gray-500">No data available</div>;
 
   const { sections } = data;
