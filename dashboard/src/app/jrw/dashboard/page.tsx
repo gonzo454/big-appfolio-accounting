@@ -42,6 +42,32 @@ export default function ExecutiveDashboard() {
   const initialized = useRef(false);
   const dataCache = useRef<Map<string, DashboardCache>>(new Map());
 
+  async function loadDashboard(qs: string): Promise<DashboardCache> {
+    const [propRes, pnlRes, rentRes] = await Promise.all([
+      apiFetch(`/api/account-totals${qs}`),
+      apiFetch(`/api/income-statement${qs}`),
+      apiFetch("/api/rent-roll"),
+    ]);
+    if (!propRes.ok || !pnlRes.ok || !rentRes.ok) {
+      throw new Error("Dashboard data request failed");
+    }
+    const propData = await propRes.json();
+    const pnlData = await pnlRes.json();
+    const rentData = await rentRes.json();
+    if (
+      typeof pnlData?.totalIncome !== "number" ||
+      typeof pnlData?.totalExpenses !== "number" ||
+      typeof pnlData?.netIncome !== "number"
+    ) {
+      throw new Error("Dashboard data incomplete");
+    }
+    return {
+      properties: propData.properties || [],
+      pnl: pnlData,
+      rent: rentData.summary || null,
+    };
+  }
+
   async function fetchData(from?: string, to?: string, period?: string) {
     const key = `${from || "default"}:${to || "default"}:${period || "mtd"}`;
     const cached = dataCache.current.get(key);
@@ -54,37 +80,29 @@ export default function ExecutiveDashboard() {
     } else {
       setLoading(true);
     }
-    try {
-      const params = new URLSearchParams();
-      if (from) params.set("from", from);
-      if (to) params.set("to", to);
-      if (period) params.set("period", period);
-      const qs = params.toString() ? `?${params.toString()}` : "";
-      const [propRes, pnlRes, rentRes] = await Promise.all([
-        apiFetch(`/api/account-totals${qs}`),
-        apiFetch(`/api/income-statement${qs}`),
-        apiFetch("/api/rent-roll"),
-      ]);
-
-      const propData = await propRes.json();
-      const pnlData = await pnlRes.json();
-      const rentData = await rentRes.json();
-
-      const data: DashboardCache = {
-        properties: propData.properties || [],
-        pnl: pnlData,
-        rent: rentData.summary || null,
-      };
-      dataCache.current.set(key, data);
-      setProperties(data.properties);
-      setPnl(data.pnl);
-      setRent(data.rent);
-    } catch (err) {
-      console.error("Failed to fetch dashboard data:", err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    if (period) params.set("period", period);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    // Keep the spinner up and retry until valid data arrives — never render NaN
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const data = await loadDashboard(qs);
+        dataCache.current.set(key, data);
+        setProperties(data.properties);
+        setPnl(data.pnl);
+        setRent(data.rent);
+        setLoading(false);
+        break;
+      } catch (err) {
+        console.error("Failed to fetch dashboard data:", err);
+        if (cached || attempt === 2) break;
+        await new Promise((r) => setTimeout(r, 3000));
+      }
     }
+    setRefreshing(false);
+    setLoading(false);
   }
 
   async function prefetchData(from: string, to: string, period: string) {
@@ -93,19 +111,7 @@ export default function ExecutiveDashboard() {
     try {
       const params = new URLSearchParams({ from, to, period });
       const qs = `?${params.toString()}`;
-      const [propRes, pnlRes, rentRes] = await Promise.all([
-        apiFetch(`/api/account-totals${qs}`),
-        apiFetch(`/api/income-statement${qs}`),
-        apiFetch("/api/rent-roll"),
-      ]);
-      const propData = await propRes.json();
-      const pnlData = await pnlRes.json();
-      const rentData = await rentRes.json();
-      dataCache.current.set(key, {
-        properties: propData.properties || [],
-        pnl: pnlData,
-        rent: rentData.summary || null,
-      });
+      dataCache.current.set(key, await loadDashboard(qs));
     } catch {}
   }
 
@@ -233,7 +239,7 @@ export default function ExecutiveDashboard() {
       )}
 
       {loading ? (
-        <LoadingState />
+        <LoadingState message="Lots of money loading here... please be patient" />
       ) : (
         <div className={refreshing ? "opacity-75 transition-opacity" : ""}>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
