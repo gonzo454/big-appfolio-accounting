@@ -4,12 +4,6 @@ import { useEffect, useState, useRef, useCallback, Fragment } from "react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { ExportButtons } from "@/components/ExportButtons";
 import { CollapsiblePanel } from "@/components/CollapsiblePanel";
-import { useInteractiveColumns, ColumnDef } from "@/hooks/useInteractiveColumns";
-
-const ACCT_COLS: ColumnDef[] = [
-  { key: "account", label: "Account", align: "left", minWidth: 120 },
-  { key: "amount", label: "Amount", align: "right", minWidth: 80 },
-];
 
 interface Account {
   name: string;
@@ -204,8 +198,6 @@ function AccountPanel({
 
   const sorted = accounts.slice().sort((a, b) => Math.abs(b.ytd) - Math.abs(a.ytd));
   const colorClass = isExpense ? "text-red-600" : "text-green-600";
-  const { columns, widths, onResizeStart, onDragStart, onDragEnd, onDragOver, onDrop } = useInteractiveColumns(ACCT_COLS);
-
   return (
     <CollapsiblePanel
       title={title}
@@ -215,27 +207,11 @@ function AccountPanel({
         </p>
       }
     >
-        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+        <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className={`${col.align === "right" ? "text-right" : "text-left"} px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 relative select-none`}
-                  style={{ width: widths[col.key] }}
-                  draggable
-                  onDragStart={(e) => onDragStart(col.key, e)}
-                  onDragEnd={onDragEnd}
-                  onDragOver={onDragOver}
-                  onDrop={(e) => onDrop(col.key, e)}
-                >
-                  <span className="cursor-grab">{col.label}</span>
-                  <span
-                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400"
-                    onMouseDown={(e) => onResizeStart(col.key, e)}
-                  />
-                </th>
-              ))}
+              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Amount</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -248,19 +224,14 @@ function AccountPanel({
                     className="hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer"
                     onClick={() => toggleDrillDown(a.number, a.ytd)}
                   >
-                    {columns.map((col) =>
-                      col.key === "account" ? (
-                        <td key={col.key} className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                          <span className="text-xs text-gray-400 mr-1">{isOpen ? "▼" : "▶"}</span>
-                          <span className="text-xs text-gray-400 mr-1">{a.number}</span>
-                          {a.name}
-                        </td>
-                      ) : (
-                        <td key={col.key} className={`px-4 py-2 text-right font-mono ${colorClass}`}>
-                          {fmt(displayAmount)}
-                        </td>
-                      )
-                    )}
+                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
+                      <span className="text-xs text-gray-400 mr-1">{isOpen ? "▼" : "▶"}</span>
+                      <span className="text-xs text-gray-400 mr-1">{a.number}</span>
+                      {a.name}
+                    </td>
+                    <td className={`px-4 py-2 text-right font-mono ${colorClass}`}>
+                      {fmt(displayAmount)}
+                    </td>
                   </tr>
                   {isOpen && (
                     <tr>

@@ -4,7 +4,6 @@ import { useEffect, useState, useRef, useCallback, Fragment } from "react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { ExportButtons } from "@/components/ExportButtons";
 import { CollapsiblePanel } from "@/components/CollapsiblePanel";
-import { useInteractiveColumns, ColumnDef } from "@/hooks/useInteractiveColumns";
 
 type Tab = "pnl" | "cashflow" | "budget";
 
@@ -426,11 +425,6 @@ interface DetailTransaction {
   amount: number;
 }
 
-const ACCOUNT_COLS: ColumnDef[] = [
-  { key: "account", label: "Account", align: "left", minWidth: 120 },
-  { key: "amount", label: "Amount", align: "right", minWidth: 80 },
-];
-
 function AccountTable({ title, accounts, dateFrom, dateTo }: { title: string; accounts: Account[]; dateFrom?: string; dateTo?: string }) {
   const isExpenseTable = title === "Expenses";
   const sorted = [...accounts].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
@@ -438,7 +432,6 @@ function AccountTable({ title, accounts, dateFrom, dateTo }: { title: string; ac
   const [detail, setDetail] = useState<DetailTransaction[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [expandedTotal, setExpandedTotal] = useState(0);
-  const { columns, widths, onResizeStart, onDragStart, onDragEnd, onDragOver, onDrop } = useInteractiveColumns(ACCOUNT_COLS);
 
   function toggleDrillDown(accountNum: string, accountAmount: number) {
     if (expanded === accountNum) {
@@ -474,27 +467,11 @@ function AccountTable({ title, accounts, dateFrom, dateTo }: { title: string; ac
         </p>
       }
     >
-        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+        <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className={`${col.align === "right" ? "text-right" : "text-left"} px-6 py-2 font-semibold text-gray-600 dark:text-gray-300 relative select-none`}
-                  style={{ width: widths[col.key] }}
-                  draggable
-                  onDragStart={(e) => onDragStart(col.key, e)}
-                  onDragEnd={onDragEnd}
-                  onDragOver={onDragOver}
-                  onDrop={(e) => onDrop(col.key, e)}
-                >
-                  <span className="cursor-grab">{col.label}</span>
-                  <span
-                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400"
-                    onMouseDown={(e) => onResizeStart(col.key, e)}
-                  />
-                </th>
-              ))}
+              <th className="text-left px-6 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
+              <th className="text-right px-6 py-2 font-semibold text-gray-600 dark:text-gray-300">Amount</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -507,20 +484,15 @@ function AccountTable({ title, accounts, dateFrom, dateTo }: { title: string; ac
                     className="hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer"
                     onClick={() => toggleDrillDown(a.number, a.amount)}
                   >
-                    {columns.map((col) =>
-                      col.key === "account" ? (
-                        <td key={col.key} className="px-6 py-2 text-gray-700 dark:text-gray-300">
-                          <span className="text-xs text-gray-400 mr-1">{isOpen ? "▼" : "▶"}</span>
-                          <span className="text-xs text-gray-400 mr-2">{a.number}</span>
-                          {a.name}
-                          {isCredit && <span className="ml-1 text-xs text-green-600 font-medium">(credit)</span>}
-                        </td>
-                      ) : (
-                        <td key={col.key} className={`px-6 py-2 text-right font-mono ${isCredit ? "text-green-600" : (isExpenseTable ? "text-red-600" : "text-green-600")}`}>
-                          {isCredit ? `(${fmt(Math.abs(a.amount))})` : fmt(Math.abs(a.amount))}
-                        </td>
-                      )
-                    )}
+                    <td className="px-6 py-2 text-gray-700 dark:text-gray-300">
+                      <span className="text-xs text-gray-400 mr-1">{isOpen ? "▼" : "▶"}</span>
+                      <span className="text-xs text-gray-400 mr-2">{a.number}</span>
+                      {a.name}
+                      {isCredit && <span className="ml-1 text-xs text-green-600 font-medium">(credit)</span>}
+                    </td>
+                    <td className={`px-6 py-2 text-right font-mono ${isCredit ? "text-green-600" : (isExpenseTable ? "text-red-600" : "text-green-600")}`}>
+                      {isCredit ? `(${fmt(Math.abs(a.amount))})` : fmt(Math.abs(a.amount))}
+                    </td>
                   </tr>
                   {isOpen && (
                     <tr>
@@ -853,74 +825,35 @@ function OperatingKpiCard({
   );
 }
 
-const BUDGET_COLS: ColumnDef[] = [
-  { key: "account", label: "Account", align: "left", minWidth: 120 },
-  { key: "actual", label: "Actual", align: "right", minWidth: 60 },
-  { key: "budget", label: "Budget", align: "right", minWidth: 60 },
-  { key: "variance", label: "Variance", align: "right", minWidth: 60 },
-  { key: "percent", label: "%", align: "right", minWidth: 40 },
-];
-
 function BudgetTable({ title, accounts }: { title: string; accounts: BudgetAccount[] }) {
   const sorted = [...accounts].sort((a, b) => Math.abs(b.actual) - Math.abs(a.actual));
-  const { columns, widths, onResizeStart, onDragStart, onDragEnd, onDragOver, onDrop } = useInteractiveColumns(BUDGET_COLS);
   return (
     <CollapsiblePanel title={title}>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+        <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className={`${col.align === "right" ? "text-right" : "text-left"} px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 relative select-none`}
-                  style={{ width: widths[col.key] }}
-                  draggable
-                  onDragStart={(e) => onDragStart(col.key, e)}
-                  onDragEnd={onDragEnd}
-                  onDragOver={onDragOver}
-                  onDrop={(e) => onDrop(col.key, e)}
-                >
-                  <span className="cursor-grab">{col.label}</span>
-                  <span
-                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400"
-                    onMouseDown={(e) => onResizeStart(col.key, e)}
-                  />
-                </th>
-              ))}
+              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Actual</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Budget</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Variance</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">%</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {sorted.map((a) => (
               <tr key={a.number}>
-                {columns.map((col) => {
-                  switch (col.key) {
-                    case "account":
-                      return (
-                        <td key={col.key} className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                          <span className="text-xs text-gray-400 mr-2">{a.number}</span>{a.name}
-                        </td>
-                      );
-                    case "actual":
-                      return <td key={col.key} className="px-4 py-2 text-right font-mono">{fmt(a.actual)}</td>;
-                    case "budget":
-                      return <td key={col.key} className="px-4 py-2 text-right font-mono text-gray-500">{fmt(a.budget)}</td>;
-                    case "variance":
-                      return (
-                        <td key={col.key} className={`px-4 py-2 text-right font-mono ${(a.variance || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                          {fmt(a.variance || 0)}
-                        </td>
-                      );
-                    case "percent":
-                      return (
-                        <td key={col.key} className={`px-4 py-2 text-right font-mono ${(a.percentVariance || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
-                          {fmtPct(a.percentVariance || 0)}
-                        </td>
-                      );
-                    default:
-                      return null;
-                  }
-                })}
+                <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
+                  <span className="text-xs text-gray-400 mr-2">{a.number}</span>{a.name}
+                </td>
+                <td className="px-4 py-2 text-right font-mono">{fmt(a.actual)}</td>
+                <td className="px-4 py-2 text-right font-mono text-gray-500">{fmt(a.budget)}</td>
+                <td className={`px-4 py-2 text-right font-mono ${(a.variance || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  {fmt(a.variance || 0)}
+                </td>
+                <td className={`px-4 py-2 text-right font-mono ${(a.percentVariance || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  {fmtPct(a.percentVariance || 0)}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -948,45 +881,23 @@ function YoYCard({ label, current, lastYear, change, invertColor }: { label: str
   );
 }
 
-const YOY_COLS: ColumnDef[] = [
-  { key: "account", label: "Account", align: "left", minWidth: 120 },
-  { key: "thisMonth", label: "This Month", align: "right", minWidth: 60 },
-  { key: "ytd", label: "YTD", align: "right", minWidth: 60 },
-  { key: "lastYear", label: "Last Year YTD", align: "right", minWidth: 60 },
-  { key: "yoy", label: "YoY Change", align: "right", minWidth: 60 },
-];
-
 function YoYTable({ title, accounts, invertColor, mode }: { title: string; accounts: BudgetAccount[]; invertColor?: boolean; mode: "all" | "operating" }) {
   const sorted = [...accounts]
     .filter((a) => (a.ytd || 0) !== 0 || (a.lastYearYtd || 0) !== 0)
     .sort((a, b) => Math.abs(b.ytd || 0) - Math.abs(a.ytd || 0));
-  const { columns, widths, onResizeStart, onDragStart, onDragEnd, onDragOver, onDrop } = useInteractiveColumns(YOY_COLS);
 
   if (sorted.length === 0) return null;
 
   return (
     <CollapsiblePanel title={title} normalMaxHeight={384}>
-        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+        <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className={`${col.align === "right" ? "text-right" : "text-left"} px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 relative select-none`}
-                  style={{ width: widths[col.key] }}
-                  draggable
-                  onDragStart={(e) => onDragStart(col.key, e)}
-                  onDragEnd={onDragEnd}
-                  onDragOver={onDragOver}
-                  onDrop={(e) => onDrop(col.key, e)}
-                >
-                  <span className="cursor-grab">{col.label}</span>
-                  <span
-                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400"
-                    onMouseDown={(e) => onResizeStart(col.key, e)}
-                  />
-                </th>
-              ))}
+              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">This Month</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">YTD</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Last Year YTD</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">YoY Change</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -994,56 +905,35 @@ function YoYTable({ title, accounts, invertColor, mode }: { title: string; accou
               const excluded = mode === "operating" && isExcluded(a.number);
               return (
                 <tr key={a.number} className={`hover:bg-gray-50 dark:hover:bg-gray-750 ${excluded ? "opacity-40" : ""}`}>
-                  {columns.map((col) => {
-                    switch (col.key) {
-                      case "account":
-                        return (
-                          <td key={col.key} className={`px-4 py-2 text-gray-700 dark:text-gray-300 ${excluded ? "line-through" : ""}`}>
-                            <span className="text-xs text-gray-400 mr-2">{a.number}</span>
-                            {a.name}
-                            {excluded && isNonRecurring(a.number) && (
-                              <span className="ml-2 text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded px-1.5 py-0.5 no-underline inline-block">
-                                non-recurring
-                              </span>
-                            )}
-                            {excluded && isInterco(a.number) && (
-                              <span className="ml-2 text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded px-1.5 py-0.5 no-underline inline-block">
-                                inter-co
-                              </span>
-                            )}
-                          </td>
-                        );
-                      case "thisMonth":
-                        return (
-                          <td key={col.key} className={`px-4 py-2 text-right font-mono text-gray-900 dark:text-white ${excluded ? "line-through" : ""}`}>
-                            {fmt(a.actual)}
-                          </td>
-                        );
-                      case "ytd":
-                        return (
-                          <td key={col.key} className={`px-4 py-2 text-right font-mono text-gray-900 dark:text-white ${excluded ? "line-through" : ""}`}>
-                            {fmt(a.ytd || 0)}
-                          </td>
-                        );
-                      case "lastYear":
-                        return (
-                          <td key={col.key} className={`px-4 py-2 text-right font-mono text-gray-500 ${excluded ? "line-through" : ""}`}>
-                            {fmt(a.lastYearYtd || 0)}
-                          </td>
-                        );
-                      case "yoy":
-                        return (
-                          <td key={col.key} className={`px-4 py-2 text-right font-mono font-semibold ${
-                            excluded ? "text-gray-400" :
-                            (invertColor ? (a.yoyVariance || 0) <= 0 : (a.yoyVariance || 0) >= 0) ? "text-green-600" : "text-red-600"
-                          }`}>
-                            {a.lastYearYtd ? fmtPct(a.yoyVariance || 0) : "—"}
-                          </td>
-                        );
-                      default:
-                        return null;
-                    }
-                  })}
+                  <td className={`px-4 py-2 text-gray-700 dark:text-gray-300 ${excluded ? "line-through" : ""}`}>
+                    <span className="text-xs text-gray-400 mr-2">{a.number}</span>
+                    {a.name}
+                    {excluded && isNonRecurring(a.number) && (
+                      <span className="ml-2 text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded px-1.5 py-0.5 no-underline inline-block">
+                        non-recurring
+                      </span>
+                    )}
+                    {excluded && isInterco(a.number) && (
+                      <span className="ml-2 text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 rounded px-1.5 py-0.5 no-underline inline-block">
+                        inter-co
+                      </span>
+                    )}
+                  </td>
+                  <td className={`px-4 py-2 text-right font-mono text-gray-900 dark:text-white ${excluded ? "line-through" : ""}`}>
+                    {fmt(a.actual)}
+                  </td>
+                  <td className={`px-4 py-2 text-right font-mono text-gray-900 dark:text-white ${excluded ? "line-through" : ""}`}>
+                    {fmt(a.ytd || 0)}
+                  </td>
+                  <td className={`px-4 py-2 text-right font-mono text-gray-500 ${excluded ? "line-through" : ""}`}>
+                    {fmt(a.lastYearYtd || 0)}
+                  </td>
+                  <td className={`px-4 py-2 text-right font-mono font-semibold ${
+                    excluded ? "text-gray-400" :
+                    (invertColor ? (a.yoyVariance || 0) <= 0 : (a.yoyVariance || 0) >= 0) ? "text-green-600" : "text-red-600"
+                  }`}>
+                    {a.lastYearYtd ? fmtPct(a.yoyVariance || 0) : "—"}
+                  </td>
                 </tr>
               );
             })}
@@ -1071,8 +961,6 @@ function SimpleKpiCard({ label, value, color, href }: { label: string; value: st
 
 function FinancialsCapitalPanel({ accounts, total }: { accounts: CapitalAccount[]; total: number }) {
   const sorted = accounts.slice().sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
-  const { columns, widths, onResizeStart, onDragStart, onDragEnd, onDragOver, onDrop } = useInteractiveColumns(ACCOUNT_COLS);
-
   return (
     <CollapsiblePanel
       title="Capital Activity"
@@ -1086,27 +974,11 @@ function FinancialsCapitalPanel({ accounts, total }: { accounts: CapitalAccount[
         </p>
       }
     >
-        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+        <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className={`${col.align === "right" ? "text-right" : "text-left"} px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 relative select-none`}
-                  style={{ width: widths[col.key] }}
-                  draggable
-                  onDragStart={(e) => onDragStart(col.key, e)}
-                  onDragEnd={onDragEnd}
-                  onDragOver={onDragOver}
-                  onDrop={(e) => onDrop(col.key, e)}
-                >
-                  <span className="cursor-grab">{col.label}</span>
-                  <span
-                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400"
-                    onMouseDown={(e) => onResizeStart(col.key, e)}
-                  />
-                </th>
-              ))}
+              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Amount</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -1114,21 +986,16 @@ function FinancialsCapitalPanel({ accounts, total }: { accounts: CapitalAccount[
               const isContribution = a.amount > 0;
               return (
                 <tr key={a.number} className="hover:bg-gray-50 dark:hover:bg-gray-750">
-                  {columns.map((col) =>
-                    col.key === "account" ? (
-                      <td key={col.key} className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                        <span className="text-xs text-gray-400 mr-1">{a.number}</span>
-                        {a.name}
-                        <span className={`ml-1 text-xs font-medium ${isContribution ? "text-blue-600" : "text-orange-600"}`}>
-                          ({isContribution ? "contribution" : "distribution"})
-                        </span>
-                      </td>
-                    ) : (
-                      <td key={col.key} className={`px-4 py-2 text-right font-mono ${isContribution ? "text-blue-600" : "text-orange-600"}`}>
-                        {isContribution ? "" : "-"}${Math.abs(a.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                    )
-                  )}
+                  <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
+                    <span className="text-xs text-gray-400 mr-1">{a.number}</span>
+                    {a.name}
+                    <span className={`ml-1 text-xs font-medium ${isContribution ? "text-blue-600" : "text-orange-600"}`}>
+                      ({isContribution ? "contribution" : "distribution"})
+                    </span>
+                  </td>
+                  <td className={`px-4 py-2 text-right font-mono ${isContribution ? "text-blue-600" : "text-orange-600"}`}>
+                    {isContribution ? "" : "-"}${Math.abs(a.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
                 </tr>
               );
             })}

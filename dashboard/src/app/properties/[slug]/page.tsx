@@ -7,12 +7,6 @@ import { DateRangePicker } from "@/components/DateRangePicker";
 import { ProfitGauge } from "@/components/ProfitGauge";
 import { ExportButtons } from "@/components/ExportButtons";
 import { CollapsiblePanel } from "@/components/CollapsiblePanel";
-import { useInteractiveColumns, ColumnDef } from "@/hooks/useInteractiveColumns";
-
-const ACCT_COLS: ColumnDef[] = [
-  { key: "account", label: "Account", align: "left", minWidth: 120 },
-  { key: "amount", label: "Amount", align: "right", minWidth: 80 },
-];
 
 interface Account {
   name: string;
@@ -396,8 +390,6 @@ function PropertyAccountPanel({
 
   const sorted = accounts.slice().sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
 
-  const { columns, widths, onResizeStart, onDragStart, onDragEnd, onDragOver, onDrop } = useInteractiveColumns(ACCT_COLS);
-
   return (
     <CollapsiblePanel
       title={title}
@@ -408,27 +400,11 @@ function PropertyAccountPanel({
         </p>
       }
     >
-        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+        <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className={`${col.align === "right" ? "text-right" : "text-left"} px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 relative select-none`}
-                  style={{ width: widths[col.key] }}
-                  draggable
-                  onDragStart={(e) => onDragStart(col.key, e)}
-                  onDragEnd={onDragEnd}
-                  onDragOver={onDragOver}
-                  onDrop={(e) => onDrop(col.key, e)}
-                >
-                  <span className="cursor-grab">{col.label}</span>
-                  <span
-                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400"
-                    onMouseDown={(e) => onResizeStart(col.key, e)}
-                  />
-                </th>
-              ))}
+              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Amount</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -442,22 +418,17 @@ function PropertyAccountPanel({
                     className="hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer"
                     onClick={() => toggleDrillDown(a.number, a.amount)}
                   >
-                    {columns.map((col) =>
-                      col.key === "account" ? (
-                        <td key={col.key} className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                          <span className="text-xs text-gray-400 mr-1">
-                            {isOpen ? "▼" : "▶"}
-                          </span>
-                          <span className="text-xs text-gray-400 mr-1">{a.number}</span>
-                          {a.name}
-                          {isCredit && <span className="ml-1 text-xs text-green-600 font-medium">(credit)</span>}
-                        </td>
-                      ) : (
-                        <td key={col.key} className={`px-4 py-2 text-right font-mono ${rowColor}`}>
-                          {isCredit ? `(${fmt(Math.abs(a.amount))})` : fmt(a.amount)}
-                        </td>
-                      )
-                    )}
+                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
+                      <span className="text-xs text-gray-400 mr-1">
+                        {isOpen ? "▼" : "▶"}
+                      </span>
+                      <span className="text-xs text-gray-400 mr-1">{a.number}</span>
+                      {a.name}
+                      {isCredit && <span className="ml-1 text-xs text-green-600 font-medium">(credit)</span>}
+                    </td>
+                    <td className={`px-4 py-2 text-right font-mono ${rowColor}`}>
+                      {isCredit ? `(${fmt(Math.abs(a.amount))})` : fmt(a.amount)}
+                    </td>
                   </tr>
                   {isOpen && (
                     <tr>
@@ -530,8 +501,6 @@ function PropertyAccountPanel({
 
 function PropertyCapitalPanel({ accounts, total }: { accounts: { name: string; number: string; amount: number }[]; total: number }) {
   const sorted = accounts.slice().sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
-  const { columns, widths, onResizeStart, onDragStart, onDragEnd, onDragOver, onDrop } = useInteractiveColumns(ACCT_COLS);
-
   return (
     <CollapsiblePanel
       title="Capital Activity"
@@ -545,47 +514,26 @@ function PropertyCapitalPanel({ accounts, total }: { accounts: { name: string; n
         </p>
       }
     >
-        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+        <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className={`${col.align === "right" ? "text-right" : "text-left"} px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 relative select-none`}
-                  style={{ width: widths[col.key] }}
-                  draggable
-                  onDragStart={(e) => onDragStart(col.key, e)}
-                  onDragEnd={onDragEnd}
-                  onDragOver={onDragOver}
-                  onDrop={(e) => onDrop(col.key, e)}
-                >
-                  <span className="cursor-grab">{col.label}</span>
-                  <span
-                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400"
-                    onMouseDown={(e) => onResizeStart(col.key, e)}
-                  />
-                </th>
-              ))}
+              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Amount</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {sorted.map((a) => (
               <tr key={a.number} className="hover:bg-gray-50 dark:hover:bg-gray-750">
-                {columns.map((col) =>
-                  col.key === "account" ? (
-                    <td key={col.key} className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                      <span className="text-xs text-gray-400 mr-1">{a.number}</span>
-                      {a.name}
-                      <span className={`ml-1 text-xs font-medium ${a.amount > 0 ? "text-blue-600" : "text-orange-600"}`}>
-                        ({a.amount > 0 ? "contribution" : "distribution"})
-                      </span>
-                    </td>
-                  ) : (
-                    <td key={col.key} className={`px-4 py-2 text-right font-mono ${a.amount > 0 ? "text-blue-600" : "text-orange-600"}`}>
-                      {a.amount > 0 ? "" : "-"}${Math.abs(a.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                  )
-                )}
+                <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
+                  <span className="text-xs text-gray-400 mr-1">{a.number}</span>
+                  {a.name}
+                  <span className={`ml-1 text-xs font-medium ${a.amount > 0 ? "text-blue-600" : "text-orange-600"}`}>
+                    ({a.amount > 0 ? "contribution" : "distribution"})
+                  </span>
+                </td>
+                <td className={`px-4 py-2 text-right font-mono ${a.amount > 0 ? "text-blue-600" : "text-orange-600"}`}>
+                  {a.amount > 0 ? "" : "-"}${Math.abs(a.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
               </tr>
             ))}
           </tbody>
