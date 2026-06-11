@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, Fragment } from "react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { ExportButtons } from "@/components/ExportButtons";
+import { CollapsiblePanel } from "@/components/CollapsiblePanel";
 
 type Tab = "pnl" | "cashflow" | "budget";
 
@@ -457,14 +458,15 @@ function AccountTable({ title, accounts, dateFrom, dateTo }: { title: string; ac
   const total = Math.abs(sorted.reduce((s, a) => s + a.amount, 0));
 
   return (
-    <div id={`section-${title.toLowerCase()}`} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
+    <CollapsiblePanel
+      title={title}
+      id={`section-${title.toLowerCase()}`}
+      headerRight={
         <p className={`text-sm font-mono font-semibold ${isExpenseTable ? "text-red-600" : "text-green-600"}`}>
           ${total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </p>
-      </div>
-      <div className="max-h-[500px] overflow-y-auto">
+      }
+    >
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
@@ -550,8 +552,7 @@ function AccountTable({ title, accounts, dateFrom, dateTo }: { title: string; ac
             })}
           </tbody>
         </table>
-      </div>
-    </div>
+    </CollapsiblePanel>
   );
 }
 
@@ -577,15 +578,22 @@ function CashFlowTab({ data }: { data: CashFlowData }) {
         { title: "Investing Activities", section: data.investing, color: "purple" },
         { title: "Financing Activities", section: data.financing, color: "emerald" },
       ] as const).map((s) => (
-        <div
+        <CollapsiblePanel
           key={s.title}
-          className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden border-l-4 ${borderColors[s.color] || "border-l-gray-500"}`}
+          title={s.title}
+          normalMaxHeight={320}
+          className={`border-l-4 ${borderColors[s.color] || "border-l-gray-500"}`}
+          headerRight={
+            <div className="flex items-center gap-3">
+              {"subtitle" in s && s.subtitle && (
+                <p className="text-xs text-gray-500">{s.subtitle}</p>
+              )}
+              <p className={`text-sm font-mono font-semibold ${s.section.total >= 0 ? "text-green-600" : "text-red-600"}`}>
+                {fmtK(s.section.total)}
+              </p>
+            </div>
+          }
         >
-          <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            <h3 className="font-semibold text-gray-900 dark:text-white">{s.title}</h3>
-            {"subtitle" in s && s.subtitle && <p className="text-xs text-gray-500 mt-0.5">{s.subtitle}</p>}
-          </div>
-          <div className="max-h-80 overflow-y-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
                 <tr>
@@ -615,8 +623,7 @@ function CashFlowTab({ data }: { data: CashFlowData }) {
                 </tr>
               </tfoot>
             </table>
-          </div>
-        </div>
+        </CollapsiblePanel>
       ))}
     </>
   );
@@ -821,10 +828,7 @@ function OperatingKpiCard({
 function BudgetTable({ title, accounts }: { title: string; accounts: BudgetAccount[] }) {
   const sorted = [...accounts].sort((a, b) => Math.abs(b.actual) - Math.abs(a.actual));
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-        <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
-      </div>
+    <CollapsiblePanel title={title}>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700">
@@ -855,7 +859,7 @@ function BudgetTable({ title, accounts }: { title: string; accounts: BudgetAccou
           </tbody>
         </table>
       </div>
-    </div>
+    </CollapsiblePanel>
   );
 }
 
@@ -885,11 +889,7 @@ function YoYTable({ title, accounts, invertColor, mode }: { title: string; accou
   if (sorted.length === 0) return null;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-        <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
-      </div>
-      <div className="max-h-96 overflow-y-auto">
+    <CollapsiblePanel title={title} normalMaxHeight={384}>
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
@@ -939,8 +939,7 @@ function YoYTable({ title, accounts, invertColor, mode }: { title: string; accou
             })}
           </tbody>
         </table>
-      </div>
-    </div>
+    </CollapsiblePanel>
   );
 }
 
@@ -962,19 +961,19 @@ function SimpleKpiCard({ label, value, color, href }: { label: string; value: st
 
 function FinancialsCapitalPanel({ accounts, total }: { accounts: CapitalAccount[]; total: number }) {
   const sorted = accounts.slice().sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
-
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900 dark:text-white">Capital Activity</h3>
+    <CollapsiblePanel
+      title="Capital Activity"
+      normalMaxHeight={300}
+      headerRight={
         <p className={`text-sm font-mono font-semibold ${total >= 0 ? "text-blue-600" : "text-orange-600"}`}>
           {total >= 0 ? "" : "-"}${Math.abs(total).toLocaleString(undefined, { maximumFractionDigits: 0 })}
           <span className="text-xs text-gray-500 ml-2">
             {total >= 0 ? "net contributions" : "net distributions"}
           </span>
         </p>
-      </div>
-      <div className="max-h-[300px] overflow-y-auto">
+      }
+    >
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
@@ -1002,7 +1001,6 @@ function FinancialsCapitalPanel({ accounts, total }: { accounts: CapitalAccount[
             })}
           </tbody>
         </table>
-      </div>
-    </div>
+    </CollapsiblePanel>
   );
 }

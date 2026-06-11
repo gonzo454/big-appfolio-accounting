@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback, Fragment } from "react";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { ExportButtons } from "@/components/ExportButtons";
+import { CollapsiblePanel } from "@/components/CollapsiblePanel";
 
 interface Account {
   name: string;
@@ -309,23 +310,20 @@ function AccountPanel({
     .sort((a, b) => Math.abs(b.ytd) - Math.abs(a.ytd));
 
   return (
-    <div id={`section-${title.toLowerCase()}`} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
+    <CollapsiblePanel
+      title={title}
+      id={`section-${title.toLowerCase()}`}
+      headerRight={
         <p className={`text-sm font-mono font-semibold ${isExpense ? "text-red-600" : "text-green-600"}`}>
           ${Math.abs(total).toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </p>
-      </div>
-      <div className="max-h-[500px] overflow-y-auto">
+      }
+    >
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
-              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                Account
-              </th>
-              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                Amount
-              </th>
+              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Amount</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -420,26 +418,25 @@ function AccountPanel({
             )}
           </tbody>
         </table>
-      </div>
-    </div>
+    </CollapsiblePanel>
   );
 }
 
 function CapitalPanel({ accounts, total }: { accounts: CapitalAccount[]; total: number }) {
   const sorted = accounts.slice().sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
-
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-        <h3 className="font-semibold text-gray-900 dark:text-white">Capital Activity</h3>
+    <CollapsiblePanel
+      title="Capital Activity"
+      normalMaxHeight={300}
+      headerRight={
         <p className={`text-sm font-mono ${total >= 0 ? "text-blue-600" : "text-orange-600"}`}>
           {total >= 0 ? "" : "-"}${Math.abs(total).toLocaleString(undefined, { maximumFractionDigits: 0 })}
           <span className="text-xs text-gray-500 ml-2">
             {total >= 0 ? "net contributions" : "net distributions"}
           </span>
         </p>
-      </div>
-      <div className="max-h-[300px] overflow-y-auto">
+      }
+    >
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
@@ -467,8 +464,7 @@ function CapitalPanel({ accounts, total }: { accounts: CapitalAccount[]; total: 
             })}
           </tbody>
         </table>
-      </div>
-    </div>
+    </CollapsiblePanel>
   );
 }
 

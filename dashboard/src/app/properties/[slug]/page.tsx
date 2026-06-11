@@ -6,6 +6,7 @@ import Link from "next/link";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { ProfitGauge } from "@/components/ProfitGauge";
 import { ExportButtons } from "@/components/ExportButtons";
+import { CollapsiblePanel } from "@/components/CollapsiblePanel";
 
 interface Account {
   name: string;
@@ -376,41 +377,7 @@ export default function PropertyDetailPage() {
 
           {/* Capital Activity */}
           {data.capitalAccounts && data.capitalAccounts.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-                <h3 className="font-semibold text-gray-900 dark:text-white">Capital Activity</h3>
-                <p className={`text-sm font-mono ${(data.totalCapital || 0) >= 0 ? "text-blue-600" : "text-orange-600"}`}>
-                  {(data.totalCapital || 0) >= 0 ? "" : "-"}${Math.abs(data.totalCapital || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  <span className="text-xs text-gray-500 ml-2">
-                    {(data.totalCapital || 0) >= 0 ? "net contributions" : "net distributions"}
-                  </span>
-                </p>
-              </div>
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
-                    <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                  {data.capitalAccounts.map((a) => (
-                    <tr key={a.number} className="hover:bg-gray-50 dark:hover:bg-gray-750">
-                      <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                        <span className="text-xs text-gray-400 mr-1">{a.number}</span>
-                        {a.name}
-                        <span className={`ml-1 text-xs font-medium ${a.amount > 0 ? "text-blue-600" : "text-orange-600"}`}>
-                          ({a.amount > 0 ? "contribution" : "distribution"})
-                        </span>
-                      </td>
-                      <td className={`px-4 py-2 text-right font-mono ${a.amount > 0 ? "text-blue-600" : "text-orange-600"}`}>
-                        {a.amount > 0 ? "" : "-"}${Math.abs(a.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <PropertyCapitalPanel accounts={data.capitalAccounts} total={data.totalCapital || 0} />
           )}
 
           {/* Bank & Escrow Accounts */}
@@ -524,23 +491,20 @@ function PropertyAccountPanel({
   const sorted = accounts.slice().sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
 
   return (
-    <div id={`section-${title.toLowerCase()}`} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
+    <CollapsiblePanel
+      title={title}
+      id={`section-${title.toLowerCase()}`}
+      headerRight={
         <p className={`text-sm font-mono font-semibold ${isExpense ? "text-red-600" : "text-green-600"}`}>
           ${Math.abs(total).toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </p>
-      </div>
-      <div className="max-h-[500px] overflow-y-auto">
+      }
+    >
         <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
-              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                Account
-              </th>
-              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">
-                Amount
-              </th>
+              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Amount</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -631,8 +595,50 @@ function PropertyAccountPanel({
             )}
           </tbody>
         </table>
-      </div>
-    </div>
+    </CollapsiblePanel>
+  );
+}
+
+function PropertyCapitalPanel({ accounts, total }: { accounts: { name: string; number: string; amount: number }[]; total: number }) {
+  const sorted = accounts.slice().sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+  return (
+    <CollapsiblePanel
+      title="Capital Activity"
+      normalMaxHeight={300}
+      headerRight={
+        <p className={`text-sm font-mono ${total >= 0 ? "text-blue-600" : "text-orange-600"}`}>
+          {total >= 0 ? "" : "-"}${Math.abs(total).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          <span className="text-xs text-gray-500 ml-2">
+            {total >= 0 ? "net contributions" : "net distributions"}
+          </span>
+        </p>
+      }
+    >
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 dark:bg-gray-700">
+            <tr>
+              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Amount</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+            {sorted.map((a) => (
+              <tr key={a.number} className="hover:bg-gray-50 dark:hover:bg-gray-750">
+                <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
+                  <span className="text-xs text-gray-400 mr-1">{a.number}</span>
+                  {a.name}
+                  <span className={`ml-1 text-xs font-medium ${a.amount > 0 ? "text-blue-600" : "text-orange-600"}`}>
+                    ({a.amount > 0 ? "contribution" : "distribution"})
+                  </span>
+                </td>
+                <td className={`px-4 py-2 text-right font-mono ${a.amount > 0 ? "text-blue-600" : "text-orange-600"}`}>
+                  {a.amount > 0 ? "" : "-"}${Math.abs(a.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+    </CollapsiblePanel>
   );
 }
 
