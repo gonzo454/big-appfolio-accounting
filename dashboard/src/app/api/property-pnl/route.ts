@@ -78,12 +78,14 @@ function extractTotals(
       } else {
         // Expense: negate so positive = cost, negative = credit/billback
         accounts.push({ name, number: row.account_number, amount: -amount, type });
-        if (isDebtService(row.account_number)) debtService += -amount;
+        if (isDebtService(row.account_number)) debtService += amount;
       }
     }
   }
 
-  return { totalIncome, totalExpenses, debtService, accounts };
+  // Debt service is a cost — AppFolio's IS column sign convention varies,
+  // so normalize to a positive magnitude.
+  return { totalIncome, totalExpenses, debtService: Math.abs(debtService), accounts };
 }
 
 /**
