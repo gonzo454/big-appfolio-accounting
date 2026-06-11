@@ -13,8 +13,8 @@ function firstOfMonth(): string {
 
 function firstOfPrevMonth(): string {
   const d = new Date();
-  d.setMonth(d.getMonth() - 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  const prev = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+  return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
 function lastOfPrevMonth(): string {
