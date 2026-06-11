@@ -103,9 +103,6 @@ export default function PvDashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <DateRangePicker
-            onRangeChange={(from, to, period) => setRange({ from, to, period })}
-          />
           <div className="flex items-center rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
             <button
               onClick={() => setOwnershipView(false)}
@@ -128,12 +125,10 @@ export default function PvDashboardPage() {
               Joe&apos;s Share (51%)
             </button>
           </div>
-          <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-            {data.period.basis} · {data.period.from} to {data.period.to}
-          </span>
         </div>
       </div>
-
+      <div className="h-0.5 w-full bg-[#E07B2A] rounded" />
+      <div className="flex flex-wrap items-center justify-between gap-3">
       <ExportButtons
         fileName={`park-vista-dashboard-${range.from}-to-${range.to}`}
         title="Park Vista Dashboard"
@@ -149,6 +144,12 @@ export default function PvDashboardPage() {
           c.occupied,
         ])}
       />
+        <div className="ml-auto">
+          <DateRangePicker
+            onRangeChange={(from, to, period) => setRange({ from, to, period })}
+          />
+        </div>
+      </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

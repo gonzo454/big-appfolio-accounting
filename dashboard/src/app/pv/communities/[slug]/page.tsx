@@ -121,17 +121,6 @@ export default function PvCommunityDetailPage({
           {data?.communityName || slug}
         </h1>
         <div className="flex items-center gap-3">
-          <DateRangePicker
-            onRangeChange={(from, to, p) => {
-              if (p === "custom") {
-                setCustomRange({ from, to });
-              } else {
-                setCustomRange(null);
-                setPeriod(p as Period);
-              }
-            }}
-          />
-          {/* Ownership toggle */}
           <div className="flex items-center rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
             <button
               onClick={() => setOwnershipView(false)}
@@ -156,18 +145,32 @@ export default function PvCommunityDetailPage({
           </div>
         </div>
       </div>
-
-      <ExportButtons
-        fileName={`${slug}-pnl`}
-        title={`${data?.communityName || slug} P&L`}
-        headers={["Type", "Account", "Number", "Amount"]}
-        rows={(data?.accounts || []).map((a) => [
-          a.type === "income" ? "Income" : "Expense",
-          a.name,
-          a.number,
-          a.amount,
-        ])}
-      />
+      <div className="h-0.5 w-full bg-[#E07B2A] rounded" />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <ExportButtons
+          fileName={`${slug}-pnl`}
+          title={`${data?.communityName || slug} P&L`}
+          headers={["Type", "Account", "Number", "Amount"]}
+          rows={(data?.accounts || []).map((a) => [
+            a.type === "income" ? "Income" : "Expense",
+            a.name,
+            a.number,
+            a.amount,
+          ])}
+        />
+        <div className="ml-auto">
+          <DateRangePicker
+            onRangeChange={(from, to, p) => {
+              if (p === "custom") {
+                setCustomRange({ from, to });
+              } else {
+                setCustomRange(null);
+                setPeriod(p as Period);
+              }
+            }}
+          />
+        </div>
+      </div>
 
       {loading ? (
         <div className="flex items-center justify-center min-h-[40vh]">

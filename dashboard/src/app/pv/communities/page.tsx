@@ -87,10 +87,6 @@ export default function PvCommunitiesPage() {
             {data.portfolio.communityCount} communities · {data.portfolio.totalUnits} total units
           </p>
         </div>
-        <div className="flex items-center gap-3">
-        <DateRangePicker
-          onRangeChange={(from, to, period) => setRange({ from, to, period })}
-        />
         <div className="flex items-center rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
           <button
             onClick={() => setOwnershipView(false)}
@@ -113,9 +109,9 @@ export default function PvCommunitiesPage() {
             Joe&apos;s Share (51%)
           </button>
         </div>
-        </div>
       </div>
-
+      <div className="h-0.5 w-full bg-[#E07B2A] rounded" />
+      <div className="flex flex-wrap items-center justify-between gap-3">
       <ExportButtons
         fileName={`park-vista-communities-${range.from}-to-${range.to}`}
         title="Park Vista Communities"
@@ -131,6 +127,12 @@ export default function PvCommunitiesPage() {
           c.occupied,
         ])}
       />
+        <div className="ml-auto">
+          <DateRangePicker
+            onRangeChange={(from, to, period) => setRange({ from, to, period })}
+          />
+        </div>
+      </div>
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

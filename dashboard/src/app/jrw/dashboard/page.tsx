@@ -199,6 +199,7 @@ export default function ExecutiveDashboard() {
           </button>
         </div>
       </div>
+      <div className="h-0.5 w-full bg-[#E07B2A] rounded" />
       <div className="flex flex-wrap items-center justify-between gap-3">
         {displayPnl && (
           <ExportButtons
