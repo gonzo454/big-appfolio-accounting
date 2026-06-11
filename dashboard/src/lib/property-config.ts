@@ -78,7 +78,7 @@ export const PROPERTY_CONFIG: Record<string, PropertyConfig> = {
   },
   "Prairie Square": {
     assetClass: "office_mg",
-    businessEntity: "jrw",
+    businessEntity: "big",
     managedOnly: true,
     archived: false,
   },
@@ -91,7 +91,7 @@ export const PROPERTY_CONFIG: Record<string, PropertyConfig> = {
   },
   "Water Tower Place": {
     assetClass: "office_mg",
-    businessEntity: "jrw",
+    businessEntity: "big",
     managedOnly: true,
     archived: false,
   },
@@ -121,13 +121,13 @@ export const PROPERTY_CONFIG: Record<string, PropertyConfig> = {
   },
   "Research Park": {
     assetClass: "office_mg",
-    businessEntity: "jrw",
+    businessEntity: "big",
     managedOnly: true,
     archived: false,
   },
   "Vantage IV": {
     assetClass: "office_mg",
-    businessEntity: "jrw",
+    businessEntity: "big",
     managedOnly: true,
     archived: false,
   },

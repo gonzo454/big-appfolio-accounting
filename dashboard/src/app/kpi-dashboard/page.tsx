@@ -190,13 +190,18 @@ export default function KPIDashboardPage() {
 function EntityPanel({ section, periodLabel }: { section: EntitySection; periodLabel: string }) {
   const s = section.summary;
   const props = section.properties;
+  const isBIG = section.entity === "big";
+  const managedProps = props.filter((p) => p.managedOnly);
+  const ownedProps = props.filter((p) => !p.managedOnly);
 
   return (
     <div className="space-y-4">
       {/* Entity Header */}
       <div className="border-l-4 border-[#E07B2A] pl-4">
         <h2 className="text-lg font-bold text-gray-900 dark:text-white">{section.label}</h2>
-        <p className="text-xs text-gray-500">{s.propertyCount} {s.propertyCount === 1 ? "property" : "properties"} &middot; {periodLabel}</p>
+        <p className="text-xs text-gray-500">
+          {isBIG ? `${managedProps.length} managed properties` : `${s.propertyCount} ${s.propertyCount === 1 ? "property" : "properties"}`} &middot; {periodLabel}
+        </p>
       </div>
 
       {/* KPI Cards */}
@@ -222,66 +227,81 @@ function EntityPanel({ section, periodLabel }: { section: EntitySection; periodL
       </div>
 
       {/* Property Table */}
-      {props.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-blue-50 dark:bg-gray-700 text-xs uppercase">
-                <tr>
-                  <th className="text-left px-4 py-3 font-bold text-gray-700 dark:text-gray-300">Property</th>
-                  <th className="text-center px-3 py-3 font-bold text-gray-700 dark:text-gray-300">Type</th>
-                  <th className="text-center px-3 py-3 font-bold text-gray-700 dark:text-gray-300">Status</th>
-                  <th className="text-right px-3 py-3 font-bold text-gray-700 dark:text-gray-300">Revenue</th>
-                  <th className="text-right px-3 py-3 font-bold text-gray-700 dark:text-gray-300">NOI</th>
-                  <th className="text-right px-3 py-3 font-bold text-gray-700 dark:text-gray-300">DSCR</th>
-                  <th className="text-right px-3 py-3 font-bold text-gray-700 dark:text-gray-300">OER</th>
-                  <th className="text-right px-3 py-3 font-bold text-gray-700 dark:text-gray-300">Occupancy</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {props.map((c) => (
-                  <tr key={c.slug} className="hover:bg-gray-50 dark:hover:bg-gray-750">
-                    <td className="px-4 py-3">
-                      <Link href={propertyHref(c.name)} className="text-[#E07B2A] hover:underline font-medium">
-                        {c.name}
-                      </Link>
-                      <span className="text-xs text-gray-400 ml-2">
-                        {Math.round(c.ownershipPct * 100)}% owned
-                        {c.managedOnly && <span className="ml-1 text-blue-400">(managed-only)</span>}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-center text-xs text-gray-500">{c.assetClassLabel}</td>
-                    <td className="px-3 py-3 text-center">
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${statusColor(c.status)}`}>
-                        {c.status}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono">{fmtK(c.revenue)}</td>
-                    <td className={`px-3 py-3 text-right font-mono ${c.noi >= 0 ? "text-emerald-600" : "text-red-600"}`}>
-                      {fmtK(c.noi)}
-                    </td>
-                    <td className={`px-3 py-3 text-right font-mono font-semibold ${c.dscr === 0 ? "text-gray-400" : c.dscr >= 1.25 ? "text-emerald-600" : c.dscr >= 1.0 ? "text-amber-600" : "text-red-600"}`}>
-                      {c.dscr > 0 ? `${c.dscr}x` : "—"}
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono">
-                      <span>{c.oer}%</span>
-                      <span className="text-xs text-gray-400 ml-1">({c.targets.oer})</span>
-                    </td>
-                    <td className="px-3 py-3 text-right font-mono">
-                      {c.totalUnits > 0 ? (
-                        <span className={c.occupancyRate >= c.targets.occupancy ? "text-emerald-600" : c.occupancyRate >= c.targets.occupancy - 10 ? "text-amber-600" : "text-red-600"}>
-                          {c.occupancyRate}%
-                          <span className="text-xs text-gray-400 ml-1">({c.occupied}/{c.totalUnits})</span>
-                        </span>
-                      ) : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {isBIG && managedProps.length > 0 && (
+        <PropertyTable title="Managed Properties" subtitle="Properties managed by BIG" rows={managedProps} />
+      )}
+      {isBIG && ownedProps.length > 0 && (
+        <PropertyTable title="BIG Operations" rows={ownedProps} />
+      )}
+      {!isBIG && props.length > 0 && (
+        <PropertyTable rows={props} />
+      )}
+    </div>
+  );
+}
+
+function PropertyTable({ title, subtitle, rows }: { title?: string; subtitle?: string; rows: PropertyKPI[] }) {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+      {title && (
+        <div className="px-6 py-3 border-b border-gray-100 dark:border-gray-700">
+          <h3 className="font-semibold text-sm text-gray-900 dark:text-white">{title}</h3>
+          {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
         </div>
       )}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-blue-50 dark:bg-gray-700 text-xs uppercase">
+            <tr>
+              <th className="text-left px-4 py-3 font-bold text-gray-700 dark:text-gray-300">Property</th>
+              <th className="text-center px-3 py-3 font-bold text-gray-700 dark:text-gray-300">Type</th>
+              <th className="text-center px-3 py-3 font-bold text-gray-700 dark:text-gray-300">Status</th>
+              <th className="text-right px-3 py-3 font-bold text-gray-700 dark:text-gray-300">Revenue</th>
+              <th className="text-right px-3 py-3 font-bold text-gray-700 dark:text-gray-300">NOI</th>
+              <th className="text-right px-3 py-3 font-bold text-gray-700 dark:text-gray-300">DSCR</th>
+              <th className="text-right px-3 py-3 font-bold text-gray-700 dark:text-gray-300">OER</th>
+              <th className="text-right px-3 py-3 font-bold text-gray-700 dark:text-gray-300">Occupancy</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+            {rows.map((c) => (
+              <tr key={c.slug} className="hover:bg-gray-50 dark:hover:bg-gray-750">
+                <td className="px-4 py-3">
+                  <Link href={propertyHref(c.name)} className="text-[#E07B2A] hover:underline font-medium">
+                    {c.name}
+                  </Link>
+                  {c.managedOnly && <span className="text-xs text-blue-400 ml-2">(managed)</span>}
+                </td>
+                <td className="px-3 py-3 text-center text-xs text-gray-500">{c.assetClassLabel}</td>
+                <td className="px-3 py-3 text-center">
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${statusColor(c.status)}`}>
+                    {c.status}
+                  </span>
+                </td>
+                <td className="px-3 py-3 text-right font-mono">{fmtK(c.revenue)}</td>
+                <td className={`px-3 py-3 text-right font-mono ${c.noi >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  {fmtK(c.noi)}
+                </td>
+                <td className={`px-3 py-3 text-right font-mono font-semibold ${c.dscr === 0 ? "text-gray-400" : c.dscr >= 1.25 ? "text-emerald-600" : c.dscr >= 1.0 ? "text-amber-600" : "text-red-600"}`}>
+                  {c.dscr > 0 ? `${c.dscr}x` : "—"}
+                </td>
+                <td className="px-3 py-3 text-right font-mono">
+                  <span>{c.oer}%</span>
+                  <span className="text-xs text-gray-400 ml-1">({c.targets.oer})</span>
+                </td>
+                <td className="px-3 py-3 text-right font-mono">
+                  {c.totalUnits > 0 ? (
+                    <span className={c.occupancyRate >= c.targets.occupancy ? "text-emerald-600" : c.occupancyRate >= c.targets.occupancy - 10 ? "text-amber-600" : "text-red-600"}>
+                      {c.occupancyRate}%
+                      <span className="text-xs text-gray-400 ml-1">({c.occupied}/{c.totalUnits})</span>
+                    </span>
+                  ) : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
