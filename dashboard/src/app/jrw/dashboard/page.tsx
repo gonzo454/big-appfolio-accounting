@@ -86,7 +86,7 @@ export default function ExecutiveDashboard() {
     if (period) params.set("period", period);
     const qs = params.toString() ? `?${params.toString()}` : "";
     // Keep the spinner up and retry until valid data arrives — never render NaN
-    for (let attempt = 0; attempt < 5; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const data = await loadDashboard(qs);
         dataCache.current.set(key, data);
@@ -97,12 +97,12 @@ export default function ExecutiveDashboard() {
         break;
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
-        if (cached || attempt === 4) break;
+        if (cached || attempt === 2) break;
         await new Promise((r) => setTimeout(r, 3000));
       }
     }
     setRefreshing(false);
-    if (cached) setLoading(false);
+    setLoading(false);
   }
 
   async function prefetchData(from: string, to: string, period: string) {
