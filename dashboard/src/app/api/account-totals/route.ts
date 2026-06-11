@@ -18,6 +18,28 @@ interface IncomeRow {
   year_to_date?: string;
 }
 
+function extractTotals(rows: IncomeRow[], column: "month_to_date" | "year_to_date") {
+  let totalIncome = 0;
+  let totalExpenses = 0;
+  for (const row of rows) {
+    const name = (row.account_name || "").toLowerCase().trim();
+    const amount = parseAmount(row[column]);
+    if (name === "total income") totalIncome = amount;
+    if (name === "total expense" || name === "total expenses") totalExpenses = Math.abs(amount);
+  }
+  return { totalIncome, totalExpenses };
+}
+
+function sameMonth(a: string, b: string): boolean {
+  return a.slice(0, 7) === b.slice(0, 7);
+}
+
+function dayBefore(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().split("T")[0];
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;
@@ -43,25 +65,52 @@ export async function GET(request: NextRequest) {
       rangeTo = today();
     }
 
-    // Compute per-property P&L from GL filtered by date range
-    const [glRows, hotelIS] = await Promise.all([
+    const isMtd = sameMonth(rangeFrom, rangeTo);
+    const isYtd = rangeFrom.endsWith("-01-01") || period === "ytd";
+    const needsSubtraction = !isMtd && !isYtd;
+
+    const hotelFilter = { properties_ids: [ENTITY_PROPERTY_IDS.hotel] };
+
+    // Build fetch promises
+    const fetches: Promise<unknown>[] = [
+      // GL for all non-hotel properties
       fetchReport<GLRow>("general_ledger", {
         posted_on_from: rangeFrom,
         posted_on_to: rangeTo,
       }),
+      // Hotel IS for the main period
       fetchReport<IncomeRow>("income_statement", {
         posted_on_from: rangeFrom,
         posted_on_to: rangeTo,
-        properties: { properties_ids: [ENTITY_PROPERTY_IDS.hotel] },
+        properties: hotelFilter,
       }),
-    ]);
+    ];
 
-    // Aggregate income - expenses per property from GL
+    // For QTD subtraction: also fetch Hotel baseline IS
+    if (needsSubtraction) {
+      const beforeFrom = dayBefore(rangeFrom);
+      fetches.push(
+        fetchReport<IncomeRow>("income_statement", {
+          posted_on_from: beforeFrom.slice(0, 8) + "01",
+          posted_on_to: beforeFrom,
+          properties: hotelFilter,
+        })
+      );
+    }
+
+    const results = await Promise.all(fetches);
+    const glRows = results[0] as GLRow[];
+    const hotelIS = results[1] as IncomeRow[];
+    const hotelBaselineIS = (results[2] || []) as IncomeRow[];
+
+    // Aggregate income - expenses per property from GL (excluding Hotel)
     const propertyMap = new Map<string, number>();
 
     for (const r of glRows) {
       const propName = (r.property_name || "").trim();
       if (!propName) continue;
+      // Skip Hotel from GL — we use income_statement for it
+      if (propName === "Badger Hotel Group") continue;
 
       const acctField = (r.account_name || "").trim();
       const acctMatch = acctField.match(/^(\d{4}-\d{4}(-\d{2})?)/);
@@ -70,46 +119,40 @@ export async function GET(request: NextRequest) {
       if (account.endsWith("-00")) account = account.slice(0, -3);
 
       const prefix = account.charAt(0);
-      // Only count P&L accounts (4=income, 5=COGS/income adj, 6=expenses, 7=expenses)
-      // Skip capital (3xxx), asset/liability (1xxx/2xxx), below-line (8xxx)
       if (prefix !== "4" && prefix !== "5" && prefix !== "6" && prefix !== "7") continue;
 
       const debit = parseFloat(r.debit || "0") || 0;
       const credit = parseFloat(r.credit || "0") || 0;
 
       let amount = 0;
-      if (prefix === "4" || prefix === "5") {
-        // Income: credits increase, debits decrease
-        // But payroll reimbursement accounts (5875, 5873) are contra-expense
-        if (account.startsWith("5875") || account.startsWith("5873")) {
-          amount = -(debit - credit); // Net as negative expense (positive P&L impact)
-        } else if (account.startsWith("5756")) {
-          continue; // Skip internal transfer accounts
-        } else {
-          amount = credit - debit;
-        }
+      if (prefix === "4") {
+        amount = credit - debit;
+      } else if (prefix === "5") {
+        if (account.startsWith("5756")) continue;
+        amount = credit - debit;
       } else {
-        // Expenses (6xxx, 7xxx): debits increase expense, reducing net income
+        // 6xxx, 7xxx: expense accounts
         amount = -(debit - credit);
       }
 
       propertyMap.set(propName, (propertyMap.get(propName) || 0) + amount);
     }
 
-    // Determine correct IS column based on period
-    const isMtd = period === "mtd" && !paramFrom;
-    const isColumn: "month_to_date" | "year_to_date" = isMtd ? "month_to_date" : "year_to_date";
-
-    // Always override Hotel from income_statement (more accurate than GL aggregation)
-    let hotelIncome = 0;
-    let hotelExpenses = 0;
-    for (const row of hotelIS) {
-      const name = (row.account_name || "").toLowerCase().trim();
-      const amount = parseAmount(row[isColumn]);
-      if (name === "total income") hotelIncome = amount;
-      if (name === "total expense" || name === "total expenses") hotelExpenses = Math.abs(amount);
+    // Hotel: compute from income_statement with proper period handling
+    let hotelNet: number;
+    if (isMtd) {
+      const t = extractTotals(hotelIS, "month_to_date");
+      hotelNet = t.totalIncome - t.totalExpenses;
+    } else if (isYtd) {
+      const t = extractTotals(hotelIS, "year_to_date");
+      hotelNet = t.totalIncome - t.totalExpenses;
+    } else {
+      // QTD/custom: YTD subtraction
+      const end = extractTotals(hotelIS, "year_to_date");
+      const start = extractTotals(hotelBaselineIS, "year_to_date");
+      hotelNet = (end.totalIncome - start.totalIncome) - (end.totalExpenses - start.totalExpenses);
     }
-    propertyMap.set("Badger Hotel Group", Math.round(hotelIncome - hotelExpenses));
+    propertyMap.set("Badger Hotel Group", Math.round(hotelNet));
 
     // Convert to array and filter archived
     const properties = Array.from(propertyMap.entries())
