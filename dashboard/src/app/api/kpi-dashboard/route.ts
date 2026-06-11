@@ -160,64 +160,23 @@ export async function GET(request: NextRequest) {
     const [results, pvResults] = await Promise.all([Promise.all(basePromises), Promise.all(pvPromises)]);
     const [pvRentRows, pvAccountRows, pvGlRows, pvYtdGlRows] = pvResults;
 
-    // Per-community income statements (same source as PV drill-down pages), rate-limited
-    const pvCommunityIds = new Map<string, number>();
-    for (const r of pvAccountRows) {
-      if (r.property_name && r.property_id) pvCommunityIds.set(r.property_name.trim(), r.property_id);
-    }
-    const pvIsColumn: "month_to_date" | "year_to_date" = isMtdPeriod ? "month_to_date" : "year_to_date";
-    const pvBaselineNeeded = !isMtdPeriod && !isYtdPeriod;
+    // Per-community revenue/expenses from PV general ledger
+    // (4xxx/5xxx = income, 6xxx/7xxx/8xxx = expenses, debt service accounts excluded)
     const pvCommunityIS = new Map<string, { income: number; expenses: number }>();
-    {
-      const entries = [...pvCommunityIds.entries()];
-      const CONCURRENCY = 4;
-      let idx = 0;
-      async function worker() {
-        while (idx < entries.length) {
-          const [name, id] = entries[idx++];
-          try {
-            const fetchIS = async (from: string, to: string) => {
-              let lastErr: unknown;
-              for (let attempt = 0; attempt < 3; attempt++) {
-                try {
-                  return await fetchPvReport<IncomeRow>("income_statement", {
-                    posted_on_from: from,
-                    posted_on_to: to,
-                    properties: { properties_ids: [id] },
-                  });
-                } catch (err) {
-                  lastErr = err;
-                  await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
-                }
-              }
-              throw lastErr;
-            };
-            const endRows = await fetchIS(qtdFrom, qtdTo);
-            let income = 0;
-            let expenses = 0;
-            for (const row of endRows) {
-              const n = (row.account_name || "").toLowerCase().trim();
-              const amount = parseAmount(row[pvIsColumn]);
-              if (n === "total income") income = amount;
-              if (n === "total expense" || n === "total expenses") expenses = Math.abs(amount);
-            }
-            if (pvBaselineNeeded) {
-              const before = dayBefore(qtdFrom);
-              const startRows = await fetchIS(before.slice(0, 8) + "01", before);
-              for (const row of startRows) {
-                const n = (row.account_name || "").toLowerCase().trim();
-                const amount = parseAmount(row.year_to_date);
-                if (n === "total income") income -= amount;
-                if (n === "total expense" || n === "total expenses") expenses -= Math.abs(amount);
-              }
-            }
-            pvCommunityIS.set(name, { income, expenses });
-          } catch {
-            // skip community on fetch failure
-          }
-        }
-      }
-      await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+    for (const row of pvGlRows) {
+      const name = (row.property_name || "").trim();
+      if (!name) continue;
+      const acctMatch = (row.account_name || "").trim().match(/^(\d{4})/);
+      if (!acctMatch) continue;
+      const acct = acctMatch[1];
+      if (isCapitalAccount(acct) || isDebtService(acct)) continue;
+      const prefix = acct.charAt(0);
+      const debit = parseAmount(row.debit);
+      const credit = parseAmount(row.credit);
+      if (!pvCommunityIS.has(name)) pvCommunityIS.set(name, { income: 0, expenses: 0 });
+      const entry = pvCommunityIS.get(name)!;
+      if (prefix === "4" || prefix === "5") entry.income += credit - debit;
+      else if (prefix === "6" || prefix === "7" || prefix === "8") entry.expenses += debit - credit;
     }
     const rentRows = results[0] as RentRollRow[];
     const glRows = results[1] as GLRow[];
@@ -626,8 +585,7 @@ export async function GET(request: NextRequest) {
       const occ = pvOccByCommunity.get(c.name) || { total: 0, occupied: 0 };
       const debtService = Math.round(pvDebtMap.get(c.name) || 0);
       const revenue = Math.round(fin.income);
-      // Income statement Total Expense includes debt interest — back it out for OpEx/NOI
-      const expenses = Math.max(0, Math.round(fin.expenses) - debtService);
+      const expenses = Math.round(fin.expenses);
       const noi = revenue - expenses;
       const ytdDebt = pvYtdDebtMap.get(c.name) || 0;
       const ytdNoi = pvYtdNoiMap.get(c.name) || 0;
