@@ -6,13 +6,6 @@ import { ExportButtons } from "@/components/ExportButtons";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { ProfitGauge } from "@/components/ProfitGauge";
 import { CollapsiblePanel } from "@/components/CollapsiblePanel";
-import { useInteractiveColumns, ColumnDef } from "@/hooks/useInteractiveColumns";
-
-const ACCT_COLS: ColumnDef[] = [
-  { key: "account", label: "Account", align: "left", minWidth: 120 },
-  { key: "amount", label: "Amount", align: "right", minWidth: 80 },
-];
-
 interface Summary {
   totalRevenue: number;
   totalRevenueLY: number;
@@ -412,7 +405,6 @@ function AccountPanel({
     .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
 
   const colorClass = isExpense ? "text-red-600" : "text-green-600";
-  const { columns, widths, onResizeStart, onDragStart, onDragEnd, onDragOver, onDrop } = useInteractiveColumns(ACCT_COLS);
 
   return (
     <CollapsiblePanel
@@ -422,27 +414,11 @@ function AccountPanel({
         <p className={`text-sm font-mono font-semibold ${colorClass}`}>{fmtShort(total)}</p>
       }
     >
-        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+        <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className={`${col.align === "right" ? "text-right" : "text-left"} px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 relative select-none`}
-                  style={{ width: widths[col.key] }}
-                  draggable
-                  onDragStart={(e) => onDragStart(col.key, e)}
-                  onDragEnd={onDragEnd}
-                  onDragOver={onDragOver}
-                  onDrop={(e) => onDrop(col.key, e)}
-                >
-                  <span className="cursor-grab">{col.label}</span>
-                  <span
-                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400"
-                    onMouseDown={(e) => onResizeStart(col.key, e)}
-                  />
-                </th>
-              ))}
+              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Amount</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -456,27 +432,19 @@ function AccountPanel({
                     className="hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer"
                     onClick={() => toggleDrillDown(a.number, a.amount)}
                   >
-                    {columns.map((col) =>
-                      col.key === "account" ? (
-                        <td key={col.key} className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                          <span className="text-xs text-gray-400 mr-1">
-                            {isOpen ? "▼" : "▶"}
-                          </span>
-                          <span className="text-xs text-gray-400 mr-1">
-                            {a.number}
-                          </span>
-                          {a.name}
-                          {isCredit && <span className="ml-1 text-xs text-green-600 font-medium">(credit)</span>}
-                        </td>
-                      ) : (
-                        <td
-                          key={col.key}
-                          className={`px-4 py-2 text-right font-mono ${isCredit ? "text-green-600" : colorClass}`}
-                        >
-                          {isCredit ? `(${fmt(Math.abs(a.amount))})` : fmt(Math.abs(a.amount))}
-                        </td>
-                      )
-                    )}
+                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
+                      <span className="text-xs text-gray-400 mr-1">
+                        {isOpen ? "▼" : "▶"}
+                      </span>
+                      <span className="text-xs text-gray-400 mr-1">
+                        {a.number}
+                      </span>
+                      {a.name}
+                      {isCredit && <span className="ml-1 text-xs text-green-600 font-medium">(credit)</span>}
+                    </td>
+                    <td className={`px-4 py-2 text-right font-mono ${isCredit ? "text-green-600" : colorClass}`}>
+                      {isCredit ? `(${fmt(Math.abs(a.amount))})` : fmt(Math.abs(a.amount))}
+                    </td>
                   </tr>
                   {isOpen && (
                     <tr>
@@ -646,7 +614,6 @@ function KpiCard({
 
 function CapitalPanel({ accounts, total }: { accounts: CapitalAccount[]; total: number }) {
   const sorted = accounts.slice().sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
-  const { columns, widths, onResizeStart, onDragStart, onDragEnd, onDragOver, onDrop } = useInteractiveColumns(ACCT_COLS);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   return (
@@ -662,27 +629,11 @@ function CapitalPanel({ accounts, total }: { accounts: CapitalAccount[]; total: 
         </p>
       }
     >
-        <table className="w-full text-sm" style={{ tableLayout: "fixed" }}>
+        <table className="w-full text-sm">
           <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
             <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className={`${col.align === "right" ? "text-right" : "text-left"} px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 relative select-none`}
-                  style={{ width: widths[col.key] }}
-                  draggable
-                  onDragStart={(e) => onDragStart(col.key, e)}
-                  onDragEnd={onDragEnd}
-                  onDragOver={onDragOver}
-                  onDrop={(e) => onDrop(col.key, e)}
-                >
-                  <span className="cursor-grab">{col.label}</span>
-                  <span
-                    className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400"
-                    onMouseDown={(e) => onResizeStart(col.key, e)}
-                  />
-                </th>
-              ))}
+              <th className="text-left px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Account</th>
+              <th className="text-right px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">Amount</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -696,26 +647,21 @@ function CapitalPanel({ accounts, total }: { accounts: CapitalAccount[]; total: 
                     className="hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer"
                     onClick={() => setExpanded(isOpen ? null : a.number)}
                   >
-                    {columns.map((col) =>
-                      col.key === "account" ? (
-                        <td key={col.key} className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                          <span className="text-xs text-gray-400 mr-1">{isOpen ? "▼" : "▶"}</span>
-                          <span className="text-xs text-gray-400 mr-1">{a.number}</span>
-                          {a.name}
-                          <span className={`ml-1 text-xs font-medium ${isContribution ? "text-blue-600" : "text-orange-600"}`}>
-                            ({isContribution ? "contribution" : "distribution"})
-                          </span>
-                        </td>
-                      ) : (
-                        <td key={col.key} className={`px-4 py-2 text-right font-mono ${isContribution ? "text-blue-600" : "text-orange-600"}`}>
-                          {isContribution ? "" : "-"}${Math.abs(a.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
-                      )
-                    )}
+                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
+                      <span className="text-xs text-gray-400 mr-1">{isOpen ? "▼" : "▶"}</span>
+                      <span className="text-xs text-gray-400 mr-1">{a.number}</span>
+                      {a.name}
+                      <span className={`ml-1 text-xs font-medium ${isContribution ? "text-blue-600" : "text-orange-600"}`}>
+                        ({isContribution ? "contribution" : "distribution"})
+                      </span>
+                    </td>
+                    <td className={`px-4 py-2 text-right font-mono ${isContribution ? "text-blue-600" : "text-orange-600"}`}>
+                      {isContribution ? "" : "-"}${Math.abs(a.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
                   </tr>
                   {isOpen && (
                     <tr>
-                      <td colSpan={columns.length} className="p-0">
+                      <td colSpan={2} className="p-0">
                         <div className="bg-gray-50 dark:bg-gray-900 px-4 py-2 border-t border-gray-200 dark:border-gray-600">
                           {txns.length === 0 ? (
                             <p className="text-xs text-gray-400 py-1">No transactions found</p>
