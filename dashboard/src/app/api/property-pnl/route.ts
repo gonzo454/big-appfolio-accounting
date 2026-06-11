@@ -25,7 +25,13 @@ interface AccountTotalsRow {
 
 function classifyAccount(accountNumber: string): "income" | "expense" {
   const prefix = accountNumber.charAt(0);
-  if (prefix === "4" || prefix === "5") return "income";
+  if (prefix === "4" || prefix === "5") {
+    // 5875/5873 are hotel labor/merchant fees, 5760 is billbacks — treat as expense
+    if (accountNumber.startsWith("5875") || accountNumber.startsWith("5873") || accountNumber.startsWith("5760")) {
+      return "expense";
+    }
+    return "income";
+  }
   return "expense";
 }
 
@@ -52,6 +58,9 @@ function extractTotals(
   let totalIncome = 0;
   let totalExpenses = 0;
   let debtService = 0;
+  // 4xxx/5xxx accounts classified as expense are still inside AppFolio's
+  // "Total Income" line; shift them into expenses so totals match the breakdown
+  let reclassified = 0;
   const accounts: { name: string; number: string; amount: number; type: string }[] = [];
 
   for (const row of rows) {
@@ -76,12 +85,19 @@ function extractTotals(
       if (type === "income") {
         accounts.push({ name, number: row.account_number, amount: Math.abs(amount), type });
       } else {
+        const prefix = row.account_number.charAt(0);
+        if (prefix === "4" || prefix === "5") {
+          reclassified += amount;
+        }
         // Expense: negate so positive = cost, negative = credit/billback
         accounts.push({ name, number: row.account_number, amount: -amount, type });
         if (isDebtService(row.account_number)) debtService += amount;
       }
     }
   }
+
+  totalIncome -= reclassified;
+  totalExpenses += -reclassified;
 
   // Debt service is a cost — AppFolio's IS column sign convention varies,
   // so normalize to a positive magnitude.
