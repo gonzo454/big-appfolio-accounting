@@ -460,7 +460,7 @@ export async function GET(request: NextRequest) {
             jrwDeprecAmort += (debit - credit) * pct;
           }
         } else if (prefix === "8") {
-          if (account.startsWith("8510") || account.startsWith("8520") || account.startsWith("8525")) {
+          if (account.startsWith("8510") || account.startsWith("8511") || account.startsWith("8520") || account.startsWith("8525") || account.startsWith("8530")) {
             jrwDebtService += (debit - credit) * pct;
           } else {
             jrwOtherBelow += (debit - credit) * pct;
