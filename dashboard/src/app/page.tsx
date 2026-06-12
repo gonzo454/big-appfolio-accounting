@@ -175,7 +175,7 @@ export default function CommandCenterPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <LoadingState message="Lots of cash loading here, please be patient." />
+        <LoadingState />
       </div>
     );
   }

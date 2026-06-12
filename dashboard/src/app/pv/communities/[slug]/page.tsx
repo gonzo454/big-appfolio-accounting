@@ -1,5 +1,7 @@
 "use client";
 
+import { LoadingState } from "@/components/LoadingState";
+import { apiJson } from "@/lib/fetchRetry";
 import { useEffect, useState, useRef, use } from "react";
 import Link from "next/link";
 import { DateRangePicker } from "@/components/DateRangePicker";
@@ -79,8 +81,7 @@ export default function PvCommunityDetailPage({
       return;
     }
     setLoading(true);
-    fetch(url)
-      .then((r) => r.json())
+    apiJson<PnLData & { error?: string }>(url)
       .then((d) => {
         if (!d.error) {
           cache.current[cacheKey] = d;
@@ -173,9 +174,7 @@ export default function PvCommunityDetailPage({
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center min-h-[40vh]">
-          <p className="text-gray-500">Loading...</p>
-        </div>
+        <LoadingState />
       ) : data?.error ? (
         <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 text-red-700 dark:text-red-300">
           {data.error}
