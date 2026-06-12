@@ -49,6 +49,19 @@ const fmtK = (n: number) => {
   return n < 0 ? `(${s})` : s;
 };
 
+const HALF_M = 500_000;
+
+const fmtAxis = (n: number) => {
+  const abs = Math.abs(n);
+  const s =
+    abs >= 1_000_000
+      ? `$${(abs / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 1 })} Million`
+      : abs > 0
+        ? `$${Math.round(abs / 1000)}K`
+        : "$0";
+  return n < 0 ? `(${s})` : s;
+};
+
 const monthLabel = (m: string) => {
   const [y, mo] = m.split("-");
   return `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(mo) - 1]} '${y.slice(2)}`;
@@ -99,8 +112,14 @@ export function PortfolioPerformanceChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joeView]);
 
-  const { chartData, dataStartIdx } = useMemo(() => {
-    if (!data) return { chartData: [], dataStartIdx: 0 };
+  const { chartData, dataStartIdx, domain, ticks } = useMemo(() => {
+    if (!data)
+      return {
+        chartData: [],
+        dataStartIdx: 0,
+        domain: [0, 0] as [number, number],
+        ticks: [] as number[],
+      };
 
     const value = (e: EntityMonth, key: EntityKey) =>
       key === "jrw" && afterDebt ? e.netIncome - (e.interestExpense || 0) : e.netIncome;
@@ -139,7 +158,23 @@ export function PortfolioPerformanceChart({
       }
     }
 
-    return { chartData: monthly.slice(-12), dataStartIdx };
+    const visible = monthly.slice(-12);
+    let lo = 0;
+    let hi = 0;
+    for (const m of visible) {
+      for (const { key } of ENTITY_META) {
+        const v = m[key] as number;
+        if (v < 0) lo = Math.min(lo, v);
+      }
+      hi = Math.max(hi, m.total as number, (m.ttm as number) || 0);
+      lo = Math.min(lo, m.total as number);
+    }
+    const domainMin = Math.floor(lo / HALF_M) * HALF_M;
+    const domainMax = Math.ceil(hi / HALF_M) * HALF_M;
+    const ticks: number[] = [];
+    for (let t = domainMin; t <= domainMax; t += HALF_M) ticks.push(t);
+
+    return { chartData: visible, dataStartIdx, domain: [domainMin, domainMax] as [number, number], ticks };
   }, [data, afterDebt, hidden]);
 
   const ttmAvailable = chartData.some((m) => m.ttm !== null);
@@ -196,7 +231,14 @@ export function PortfolioPerformanceChart({
               <ComposedChart data={chartData} stackOffset="sign" margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                 <XAxis dataKey="month" tickFormatter={monthLabel} tick={{ fontSize: 10 }} />
-                <YAxis tickFormatter={(v: number) => fmtK(v)} tick={{ fontSize: 10 }} width={56} />
+                <YAxis
+                  tickFormatter={fmtAxis}
+                  tick={{ fontSize: 10 }}
+                  width={78}
+                  domain={domain}
+                  ticks={ticks}
+                  interval={0}
+                />
                 <ReferenceLine y={0} stroke="#9ca3af" />
                 <Tooltip
                   formatter={(value, name) => {
