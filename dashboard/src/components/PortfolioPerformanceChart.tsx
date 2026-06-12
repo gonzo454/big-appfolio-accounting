@@ -63,7 +63,7 @@ const fmtAxis = (n: number) => {
   const abs = Math.abs(n);
   const s =
     abs >= 1_000_000
-      ? `$${(abs / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 1 })} Million`
+      ? `$${(abs / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 1 })} Mil`
       : abs > 0
         ? `$${Math.round(abs / 1000)}K`
         : "$0";
@@ -291,7 +291,7 @@ export function PortfolioPerformanceChart({
                 <YAxis
                   tickFormatter={fmtAxis}
                   tick={{ fontSize: 10 }}
-                  width={78}
+                  width={64}
                   domain={domain}
                   ticks={ticks}
                   interval={0}
