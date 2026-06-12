@@ -239,7 +239,7 @@ export default function ExecutiveDashboard() {
       )}
 
       {loading ? (
-        <LoadingState message="Lots of money loading here... please be patient" />
+        <LoadingState message="Lots of money loading here, please be patient." />
       ) : (
         <div className={refreshing ? "opacity-75 transition-opacity" : ""}>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
