@@ -244,18 +244,6 @@ export function PortfolioPerformanceChart({
           </p>
           <p className="text-xs text-gray-400">{VIEW_META.find((v) => v.key === view)?.subtitle}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center rounded-md border border-gray-200 dark:border-gray-600 overflow-hidden text-[10px] font-medium">
-          {VIEW_META.map(({ key, label }, i) => (
-            <button
-              key={key}
-              onClick={() => setView(key)}
-              className={`px-2 py-1 transition-colors ${i > 0 ? "border-l border-gray-200 dark:border-gray-600" : ""} ${view === key ? "bg-[#E07B2A] text-white" : "bg-white dark:bg-gray-700 text-gray-500 hover:text-[#E07B2A]"}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
         <div className="flex items-center rounded-md border border-gray-200 dark:border-gray-600 overflow-hidden text-[10px] font-medium">
           <button
             onClick={() => setAfterDebt(false)}
@@ -270,7 +258,21 @@ export function PortfolioPerformanceChart({
             After Debt Service
           </button>
         </div>
-        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 mb-2">
+        {VIEW_META.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setView(key)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              view === key
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {loading ? (
