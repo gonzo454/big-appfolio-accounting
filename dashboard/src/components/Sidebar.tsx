@@ -106,8 +106,12 @@ export function Sidebar() {
         >
           <img src="/command-center-icon.png" alt="" className="w-9 h-9 rounded-lg object-contain" />
           <div>
-            <p className="text-sm font-semibold leading-tight">Command Center</p>
-            <p className={`text-[10px] ${pathname === "/" ? "text-white/70" : "text-gray-400"}`}>Independent Businesses. Unified Control.</p>
+            <p className="text-base font-semibold leading-tight">Command Center</p>
+            <p className={`text-xs leading-snug ${pathname === "/" ? "text-white/70" : "text-gray-400"}`}>
+              Independent Businesses.
+              <br />
+              Unified Control.
+            </p>
           </div>
         </Link>
       </div>
