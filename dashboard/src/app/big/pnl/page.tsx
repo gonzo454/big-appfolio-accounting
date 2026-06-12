@@ -181,9 +181,6 @@ export default function BigPnlPage() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           BIG Management — P&L Statement
         </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Profit & Loss for Blackdeer Investment Group as a management company
-        </p>
       </div>
 
       {/* Refresh indicator bar */}
