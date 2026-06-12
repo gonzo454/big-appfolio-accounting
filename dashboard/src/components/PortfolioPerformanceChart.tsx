@@ -35,20 +35,21 @@ export interface PortfolioTtmData {
 }
 
 const ENTITY_META: { key: EntityKey; label: string; color: string }[] = [
-  { key: "jrw", label: "JRW Real Estate", color: "#22c55e" },
+  { key: "jrw", label: "JRW Real Estate", color: "#2563eb" },
   { key: "big", label: "Blackdeer I.G.", color: "#f59e0b" },
-  { key: "hotel", label: "Badger Hotel", color: "#ef4444" },
+  { key: "hotel", label: "Badger Hotel", color: "#06b6d4" },
   { key: "pvshm", label: "Park Vista SHM", color: "#a855f7" },
 ];
 
 type EntityKey = "jrw" | "big" | "hotel" | "pvshm";
 
-type ChartView = "net" | "revexp" | "cumulative";
+type ChartView = "net" | "revexp" | "cumulative" | "ttm";
 
 const VIEW_META: { key: ChartView; label: string; title: string; subtitle: string }[] = [
-  { key: "net", label: "Net Income", title: "Combined Owner Net Income", subtitle: "Trailing 12 months \u00b7 monthly by entity with TTM total" },
-  { key: "revexp", label: "Revenue vs Expenses", title: "Combined Revenue vs Expenses", subtitle: "Trailing 12 months \u00b7 combined monthly revenue and expenses" },
-  { key: "cumulative", label: "Cumulative", title: "Cumulative Owner Net Income", subtitle: "Trailing 12 months \u00b7 running net income by entity" },
+  { key: "net", label: "Net", title: "Combined Owner Net Income", subtitle: "Trailing 12 months \u00b7 monthly by entity" },
+  { key: "revexp", label: "Rev vs Exp", title: "Combined Revenue vs Expenses", subtitle: "Trailing 12 months \u00b7 combined monthly revenue and expenses" },
+  { key: "cumulative", label: "Cumul", title: "Cumulative Owner Net Income", subtitle: "Trailing 12 months \u00b7 running net income by entity" },
+  { key: "ttm", label: "TTM", title: "TTM Owner Net Income", subtitle: "Trailing-12-month combined net income ending each month" },
 ];
 
 const fmtK = (n: number) => {
@@ -57,7 +58,18 @@ const fmtK = (n: number) => {
   return n < 0 ? `(${s})` : s;
 };
 
-const HALF_M = 500_000;
+// pick a tick step that yields at most ~8 gridlines for the given span
+function niceAxis(lo: number, hi: number): { domain: [number, number]; ticks: number[] } {
+  const span = Math.max(hi - lo, 1);
+  const steps = [100_000, 250_000, 500_000, 1_000_000, 2_000_000, 2_500_000, 5_000_000, 10_000_000];
+  let step = steps.find((s) => span / s <= 8) ?? Math.ceil(span / 8 / 10_000_000) * 10_000_000;
+  if (step <= 0) step = 500_000;
+  const min = Math.floor(lo / step) * step;
+  const max = Math.ceil(hi / step) * step;
+  const ticks: number[] = [];
+  for (let t = min; t <= max; t += step) ticks.push(t);
+  return { domain: [min, max], ticks };
+}
 
 const fmtAxis = (n: number) => {
   const abs = Math.abs(n);
@@ -204,21 +216,23 @@ export function PortfolioPerformanceChart({
         }
         hi = Math.max(hi, m.c_total as number);
         lo = Math.min(lo, m.c_total as number);
+      } else if (view === "ttm") {
+        if (m.ttm !== null) {
+          hi = Math.max(hi, m.ttm as number);
+          lo = Math.min(lo, m.ttm as number);
+        }
       } else {
         for (const { key } of ENTITY_META) {
           const v = m[key] as number;
           if (v < 0) lo = Math.min(lo, v);
         }
-        hi = Math.max(hi, m.total as number, (m.ttm as number) || 0);
+        hi = Math.max(hi, m.total as number);
         lo = Math.min(lo, m.total as number);
       }
     }
-    const domainMin = Math.floor(lo / HALF_M) * HALF_M;
-    const domainMax = Math.ceil(hi / HALF_M) * HALF_M;
-    const ticks: number[] = [];
-    for (let t = domainMin; t <= domainMax; t += HALF_M) ticks.push(t);
+    const axis = niceAxis(lo, hi);
 
-    return { chartData: visible, dataStartIdx, domain: [domainMin, domainMax] as [number, number], ticks };
+    return { chartData: visible, dataStartIdx, domain: axis.domain, ticks: axis.ticks };
   }, [data, afterDebt, hidden, view]);
 
   const ttmAvailable = chartData.some((m) => m.ttm !== null);
@@ -298,13 +312,14 @@ export function PortfolioPerformanceChart({
                   ticks={ticks}
                   interval={0}
                 />
+
                 <ReferenceLine y={0} stroke="#9ca3af" />
                 <Tooltip
                   formatter={(value, name) => {
                     const meta = ENTITY_META.find((e) => e.key === name);
                     const v = typeof value === "number" ? value : 0;
                     return [
-                      <span key="v" style={{ color: v < 0 ? "#ef4444" : undefined }}>{fmtK(v)}</span>,
+                      <span key="v" style={{ color: v < 0 || name === "expenses" ? "#ef4444" : "#16a34a" }}>{name === "expenses" && v > 0 ? `(${fmtK(v)})` : fmtK(v)}</span>,
                       meta
                         ? meta.label
                         : name === "ttm"
@@ -323,13 +338,12 @@ export function PortfolioPerformanceChart({
                   labelFormatter={(m) => monthLabel(String(m))}
                   contentStyle={{ fontSize: 11 }}
                 />
-                {view === "net" && (
-                  <>
-                    {ENTITY_META.map(({ key, color }) => (
-                      <Bar key={key} dataKey={key} stackId="net" fill={color} maxBarSize={36} />
-                    ))}
-                    <Line type="monotone" dataKey="ttm" stroke="#1f2937" strokeWidth={2.5} dot={{ r: 2.5 }} connectNulls={false} name="ttm" />
-                  </>
+                {view === "net" &&
+                  ENTITY_META.map(({ key, color }) => (
+                    <Bar key={key} dataKey={key} stackId="net" fill={color} maxBarSize={36} />
+                  ))}
+                {view === "ttm" && (
+                  <Line type="monotone" dataKey="ttm" stroke="#1f2937" strokeWidth={2.5} dot={{ r: 2.5 }} connectNulls={false} name="ttm" />
                 )}
                 {view === "revexp" && (
                   <>
@@ -372,7 +386,7 @@ export function PortfolioPerformanceChart({
               </button>
             ))
             )}
-            {view === "net" && (
+            {view === "ttm" && (
               <span className="flex items-center gap-1.5 text-[11px]">
                 <span className="w-4 h-0.5 rounded bg-gray-800 dark:bg-gray-200" />
                 <span className="text-gray-600 dark:text-gray-300">TTM Total</span>
@@ -385,7 +399,7 @@ export function PortfolioPerformanceChart({
               </span>
             )}
           </div>
-          {view === "net" && (!ttmAvailable || dataStartIdx > 0) && (
+          {view === "ttm" && (!ttmAvailable || dataStartIdx > 0) && (
             <p className="text-[10px] text-gray-400 mt-1.5">
               TTM line begins where a full 12 months of GL history is available.
             </p>
