@@ -314,7 +314,7 @@ export function PortfolioPerformanceChart({
                   interval={0}
                 />
 
-                <ReferenceLine y={0} stroke="#9ca3af" />
+                <ReferenceLine y={0} stroke="#4b5563" />
                 <Tooltip
                   formatter={(value, name) => {
                     const meta = ENTITY_META.find((e) => e.key === name);
