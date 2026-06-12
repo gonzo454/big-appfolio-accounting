@@ -57,7 +57,18 @@ const fmtK = (n: number) => {
   return n < 0 ? `(${s})` : s;
 };
 
-const HALF_M = 500_000;
+// pick a tick step that yields at most ~8 gridlines for the given span
+function niceAxis(lo: number, hi: number): { domain: [number, number]; ticks: number[] } {
+  const span = Math.max(hi - lo, 1);
+  const steps = [100_000, 250_000, 500_000, 1_000_000, 2_000_000, 2_500_000, 5_000_000, 10_000_000];
+  let step = steps.find((s) => span / s <= 8) ?? Math.ceil(span / 8 / 10_000_000) * 10_000_000;
+  if (step <= 0) step = 500_000;
+  const min = Math.floor(lo / step) * step;
+  const max = Math.ceil(hi / step) * step;
+  const ticks: number[] = [];
+  for (let t = min; t <= max; t += step) ticks.push(t);
+  return { domain: [min, max], ticks };
+}
 
 const fmtAxis = (n: number) => {
   const abs = Math.abs(n);
@@ -121,13 +132,15 @@ export function PortfolioPerformanceChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joeView]);
 
-  const { chartData, dataStartIdx, domain, ticks } = useMemo(() => {
+  const { chartData, dataStartIdx, domain, ticks, ttmDomain, ttmTicks } = useMemo(() => {
     if (!data)
       return {
         chartData: [],
         dataStartIdx: 0,
         domain: [0, 0] as [number, number],
         ticks: [] as number[],
+        ttmDomain: [0, 0] as [number, number],
+        ttmTicks: [] as number[],
       };
 
     const value = (e: EntityMonth) =>
@@ -191,6 +204,8 @@ export function PortfolioPerformanceChart({
 
     let lo = 0;
     let hi = 0;
+    let ttmLo = 0;
+    let ttmHi = 0;
     for (const m of visible) {
       if (view === "revexp") {
         hi = Math.max(hi, m.revenue as number, m.expenses as number);
@@ -209,16 +224,25 @@ export function PortfolioPerformanceChart({
           const v = m[key] as number;
           if (v < 0) lo = Math.min(lo, v);
         }
-        hi = Math.max(hi, m.total as number, (m.ttm as number) || 0);
+        hi = Math.max(hi, m.total as number);
         lo = Math.min(lo, m.total as number);
+        if (m.ttm !== null) {
+          ttmHi = Math.max(ttmHi, m.ttm as number);
+          ttmLo = Math.min(ttmLo, m.ttm as number);
+        }
       }
     }
-    const domainMin = Math.floor(lo / HALF_M) * HALF_M;
-    const domainMax = Math.ceil(hi / HALF_M) * HALF_M;
-    const ticks: number[] = [];
-    for (let t = domainMin; t <= domainMax; t += HALF_M) ticks.push(t);
+    const left = niceAxis(lo, hi);
+    const right = niceAxis(ttmLo, ttmHi);
 
-    return { chartData: visible, dataStartIdx, domain: [domainMin, domainMax] as [number, number], ticks };
+    return {
+      chartData: visible,
+      dataStartIdx,
+      domain: left.domain,
+      ticks: left.ticks,
+      ttmDomain: right.domain,
+      ttmTicks: right.ticks,
+    };
   }, [data, afterDebt, hidden, view]);
 
   const ttmAvailable = chartData.some((m) => m.ttm !== null);
@@ -298,6 +322,18 @@ export function PortfolioPerformanceChart({
                   ticks={ticks}
                   interval={0}
                 />
+                {view === "net" && ttmAvailable && (
+                  <YAxis
+                    yAxisId="ttm"
+                    orientation="right"
+                    tickFormatter={fmtAxis}
+                    tick={{ fontSize: 10, fill: "#6b7280" }}
+                    width={64}
+                    domain={ttmDomain}
+                    ticks={ttmTicks}
+                    interval={0}
+                  />
+                )}
                 <ReferenceLine y={0} stroke="#9ca3af" />
                 <Tooltip
                   formatter={(value, name) => {
@@ -328,7 +364,9 @@ export function PortfolioPerformanceChart({
                     {ENTITY_META.map(({ key, color }) => (
                       <Bar key={key} dataKey={key} stackId="net" fill={color} maxBarSize={36} />
                     ))}
-                    <Line type="monotone" dataKey="ttm" stroke="#1f2937" strokeWidth={2.5} dot={{ r: 2.5 }} connectNulls={false} name="ttm" />
+                    {ttmAvailable && (
+                      <Line yAxisId="ttm" type="monotone" dataKey="ttm" stroke="#1f2937" strokeWidth={2.5} dot={{ r: 2.5 }} connectNulls={false} name="ttm" />
+                    )}
                   </>
                 )}
                 {view === "revexp" && (
@@ -375,7 +413,7 @@ export function PortfolioPerformanceChart({
             {view === "net" && (
               <span className="flex items-center gap-1.5 text-[11px]">
                 <span className="w-4 h-0.5 rounded bg-gray-800 dark:bg-gray-200" />
-                <span className="text-gray-600 dark:text-gray-300">TTM Total</span>
+                <span className="text-gray-600 dark:text-gray-300">TTM Total (right axis)</span>
               </span>
             )}
             {view === "cumulative" && (
