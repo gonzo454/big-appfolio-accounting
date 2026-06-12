@@ -44,7 +44,7 @@ export function PortfolioContributionDonut({ data }: { data: PortfolioTtmData | 
       { name: "Blackdeer I.G.", value: (big.revenue / realTotal) * scale, color: "#f59e0b", netIncome: big.net },
       { name: "Badger Hotel", value: (hotel.revenue / realTotal) * scale, color: "#a855f7", netIncome: hotel.net },
       { name: "Park Vista SHM", value: (pvshm.revenue / realTotal) * scale, color: "#06b6d4", netIncome: pvshm.net },
-      { name: "Badger Realty", value: BADGER_PLACEHOLDER_PCT, color: "#9ca3af", netIncome: null, placeholder: true },
+      { name: "Badger Realty", value: BADGER_PLACEHOLDER_PCT, color: "#eab308", netIncome: null, placeholder: true },
     ].filter((s) => s.value > 0);
   }, [data]);
 
