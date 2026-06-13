@@ -5,6 +5,7 @@ import { apiJson } from "@/lib/fetchRetry";
 import { useEffect, useState, useRef, use } from "react";
 import Link from "next/link";
 import { DateRangePicker } from "@/components/DateRangePicker";
+import { resolvePersistedRange } from "@/lib/date-range";
 import { ExportButtons } from "@/components/ExportButtons";
 
 interface Account {
@@ -40,8 +41,18 @@ export default function PvCommunityDetailPage({
   const { slug } = use(params);
   const [data, setData] = useState<PnLData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<Period>("mtd");
-  const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
+  const [period, setPeriod] = useState<Period>(() => {
+    const p = resolvePersistedRange();
+    return p && (p.period === "mtd" || p.period === "qtd" || p.period === "ytd")
+      ? (p.period as Period)
+      : "mtd";
+  });
+  const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(() => {
+    const p = resolvePersistedRange();
+    return p && p.period !== "mtd" && p.period !== "qtd" && p.period !== "ytd"
+      ? { from: p.from, to: p.to }
+      : null;
+  });
   const [ownershipView, setOwnershipView] = useState(false);
   const initialized = useRef(false);
   const cache = useRef<Record<string, PnLData>>({});

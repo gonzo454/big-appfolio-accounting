@@ -5,6 +5,7 @@ import { apiJson } from "@/lib/fetchRetry";
 import { useEffect, useState, useCallback } from "react";
 import { ProfitGauge } from "@/components/ProfitGauge";
 import { DateRangePicker } from "@/components/DateRangePicker";
+import { resolvePersistedRange } from "@/lib/date-range";
 import { ExportButtons } from "@/components/ExportButtons";
 
 interface CommunitySnapshot {
@@ -57,7 +58,12 @@ export default function PvDashboardPage() {
   const [data, setData] = useState<PvData | null>(null);
   const [loading, setLoading] = useState(true);
   const [ownershipView, setOwnershipView] = useState(false);
-  const [range, setRange] = useState({ from: firstOfMonth(), to: todayStr(), period: "mtd" });
+  const [range, setRange] = useState(() => {
+    const p = resolvePersistedRange();
+    return p
+      ? { from: p.from, to: p.to, period: p.period }
+      : { from: firstOfMonth(), to: todayStr(), period: "mtd" };
+  });
 
   const fetchData = useCallback(() => {
     const view = ownershipView ? "&view=joe" : "";

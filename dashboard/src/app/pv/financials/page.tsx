@@ -3,6 +3,7 @@
 import { LoadingState } from "@/components/LoadingState";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { DateRangePicker } from "@/components/DateRangePicker";
+import { resolvePersistedRange } from "@/lib/date-range";
 import { ExportButtons } from "@/components/ExportButtons";
 import { fetchJsonRetry, apiJson } from "@/lib/fetchRetry";
 
@@ -48,8 +49,18 @@ function periodDates(p: Period) {
 }
 
 export default function PvFinancialsPage() {
-  const [period, setPeriod] = useState<Period>("mtd");
-  const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null);
+  const [period, setPeriod] = useState<Period>(() => {
+    const p = resolvePersistedRange();
+    return p && (p.period === "mtd" || p.period === "qtd" || p.period === "ytd")
+      ? (p.period as Period)
+      : "mtd";
+  });
+  const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(() => {
+    const p = resolvePersistedRange();
+    return p && p.period !== "mtd" && p.period !== "qtd" && p.period !== "ytd"
+      ? { from: p.from, to: p.to }
+      : null;
+  });
   const [ownershipView, setOwnershipView] = useState(false);
   const [data, setData] = useState<PnLData | null>(null);
   const [loading, setLoading] = useState(true);

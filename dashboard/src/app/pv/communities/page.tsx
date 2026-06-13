@@ -5,6 +5,7 @@ import { apiJson } from "@/lib/fetchRetry";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { DateRangePicker } from "@/components/DateRangePicker";
+import { resolvePersistedRange } from "@/lib/date-range";
 import { ExportButtons } from "@/components/ExportButtons";
 
 interface CommunitySnapshot {
@@ -43,10 +44,15 @@ export default function PvCommunitiesPage() {
   const [data, setData] = useState<PvData | null>(null);
   const [loading, setLoading] = useState(true);
   const [ownershipView, setOwnershipView] = useState(false);
-  const [range, setRange] = useState({
-    from: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`,
-    to: new Date().toISOString().split("T")[0],
-    period: "mtd",
+  const [range, setRange] = useState(() => {
+    const p = resolvePersistedRange();
+    return p
+      ? { from: p.from, to: p.to, period: p.period }
+      : {
+          from: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`,
+          to: new Date().toISOString().split("T")[0],
+          period: "mtd",
+        };
   });
 
   const fetchData = useCallback(() => {
