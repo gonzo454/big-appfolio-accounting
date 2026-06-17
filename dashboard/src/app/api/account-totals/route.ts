@@ -212,30 +212,42 @@ export async function GET(request: NextRequest) {
       endingBalance: number;
       ownershipPct: number;
     }[] = [];
-    const seen = new Set<string>();
 
+    // account_totals can return more than one row per property (one per cash
+    // account), so accumulate net_amount + ending_balance across every row for
+    // a property before building its entry.
+    const agg = new Map<string, { net: number; ending: number }>();
+    const order: string[] = [];
     for (const p of allProperties) {
       const name = (p.property_name || "").trim();
       if (!name) continue;
       if (getPropertyConfig(name).archived) continue;
       // PV management co. is a separate business, not a real estate holding
       if (isParkVista(name)) continue;
-      if (seen.has(name)) continue;
-      seen.add(name);
+      if (!agg.has(name)) {
+        agg.set(name, { net: 0, ending: 0 });
+        order.push(name);
+      }
+      const entry = agg.get(name)!;
+      entry.net += parseAmount(p.net_amount);
+      entry.ending += parseAmount(p.ending_balance);
+    }
 
+    for (const name of order) {
+      const { net, ending } = agg.get(name)!;
       const pct = getOwnership(name);
-      const netAmount = Math.round(parseAmount(p.net_amount));
+      const netAmount = Math.round(net);
       properties.push({
         name,
         netAmount: ownershipView ? Math.round(netAmount * pct) : netAmount,
-        endingBalance: Math.round(parseAmount(p.ending_balance)),
+        endingBalance: Math.round(ending),
         ownershipPct: pct,
       });
     }
 
     // Badger Hotel Group is absent from account_totals (AppFolio treats it as
     // an internal management entity), so include it via its income statement.
-    if (!seen.has("Badger Hotel Group") && !getPropertyConfig("Badger Hotel Group").archived) {
+    if (!agg.has("Badger Hotel Group") && !getPropertyConfig("Badger Hotel Group").archived) {
       const net = await fetchHotelNet(rangeFrom, rangeTo, isMtd, isYtd);
       const pct = getOwnership("Badger Hotel Group");
       properties.push({
