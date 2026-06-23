@@ -207,6 +207,7 @@ export async function buildPortfolioSeries(
   const pvshm = months.map(emptyMonth);
   const mirrorBig = new Array(months.length).fill(0);
   const mirrorJrw = new Array(months.length).fill(0);
+  const bigCapital = new Array(months.length).fill(0);
   jrw.forEach((m) => (m.interestExpense = 0));
   pvshm.forEach((m) => (m.interestExpense = 0));
 
@@ -235,7 +236,10 @@ export async function buildPortfolioSeries(
     const debit = parseFloat(r.debit || "0") || 0;
     const credit = parseFloat(r.credit || "0") || 0;
 
-    if (prefix === "4" || prefix === "5") {
+    if (prefix === "3" && section === "big") {
+      // Capital contributions offset BIG expenses (Joe's cash infusions)
+      bigCapital[i] += (credit - debit) * pct;
+    } else if (prefix === "4" || prefix === "5") {
       // Contra-revenue accounts post as debits; 5756 inter-entity is excluded
       if (account.startsWith("5875") || account.startsWith("5873") || account.startsWith("5760")) {
         target[i].revenue -= (debit - credit) * pct;
@@ -282,6 +286,13 @@ export async function buildPortfolioSeries(
       m.netIncome = m.revenue - m.expenses;
       if (m.interestExpense !== undefined) m.interestExpense = Math.round(m.interestExpense);
     }
+  }
+
+  // Reconcile BIG net income with capital contributions (same basis as
+  // command-center API's bigNetWithCapital — Joe's cash covers the shortfall
+  // between fee revenue and operating expenses)
+  for (let i = 0; i < months.length; i++) {
+    big[i].netIncome += Math.round(bigCapital[i]);
   }
 
   const mirror = months.map((month, i) => ({
