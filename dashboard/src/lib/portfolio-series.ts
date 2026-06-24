@@ -137,7 +137,7 @@ async function mapWithConcurrency<T, R>(
  * (PVSHM management company).
  *
  * Joe's Share view weights each JRW property by Joe's ownership %, PVSHM by
- * 51%, and the hotel by Joe's stake; BIG is wholly owned.
+ * Joe's 51% management stake, and the hotel by Joe's stake; BIG is wholly owned.
  */
 export async function buildPortfolioSeries(
   monthCount: number,

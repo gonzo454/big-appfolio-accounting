@@ -447,7 +447,7 @@ export async function GET(request: NextRequest) {
         const mainDbIncomeRaw = jrwIncomeRaw - pvIncomeRaw;
         const mainDbOpexRaw = jrwOpexRaw - pvExpensesRaw;
         const ratio = totalRaw > 0 ? totalWeighted / totalRaw : 1;
-        // PV portion weighted at building-level ownership (51%)
+        // PV portion weighted at avg building-level ownership
         jrwIncome = mainDbIncomeRaw * ratio + pvIncomeRaw * pvBuildingPct;
         jrwOpex = mainDbOpexRaw * ratio + pvExpensesRaw * pvBuildingPct;
       } else {
