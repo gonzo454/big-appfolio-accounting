@@ -6,9 +6,8 @@
  * covers the PV *buildings* Joe owns directly — those appear as real estate
  * holdings in the JRW section, weighted by his equity share.
  *
- * Keys must match property_name values in the PV AppFolio database:
- * Camanche, Legacy, Legacy at Noel Manor, Legacy of DeForest, Noel Manor,
- * North Hill, Regency Retirement Residence of Clinton, Waupaca, Willow Lane
+ * Source: Julie Lonergan (June 2026) — per-building ownership confirmed.
+ * Keys must match property_name values in the PV AppFolio database.
  */
 
 export interface PvBuildingEntry {
@@ -18,25 +17,26 @@ export interface PvBuildingEntry {
   label?: string;
 }
 
-// Joe owns 51% of Park Vista Senior Housing Management, which operates all
-// 14 communities. Per Joe (June 2026): JRW should reflect ownership in ALL
-// real estate including the senior buildings. Using 51% (PVSHM ownership)
-// as the equity proxy for each building.
+// Per-building ownership from Julie Lonergan (June 2026).
+// The 5 newest properties (Arborcreek, Arborview, Arborwood, Whispering Pines,
+// The Lodge) are at 67.86% based on actual cash-out refi amounts at closing.
+// Legacy at Noel Manor, Noel Manor, and Regency are not in Julie's list —
+// using 0% until confirmed (Joe may not hold direct RE equity in those).
 export const JOE_PV_BUILDINGS: Record<string, PvBuildingEntry> = {
-  "Arborcreek Apartments": { pct: 0.51, label: "Arborcreek Apartments" },
-  "Arborview Court": { pct: 0.51, label: "Arborview Court" },
-  "Arborwood Lodge": { pct: 0.51, label: "Arborwood Lodge" },
-  "Camanche": { pct: 0.51, label: "Camanche" },
-  "Legacy": { pct: 0.51, label: "Legacy" },
-  "Legacy at Noel Manor": { pct: 0.51, label: "Legacy at Noel Manor" },
-  "Legacy of DeForest": { pct: 0.51, label: "Legacy of DeForest" },
-  "Noel Manor": { pct: 0.51, label: "Noel Manor" },
-  "North Hill": { pct: 0.51, label: "North Hill" },
-  "Regency Retirement Residence of Clinton": { pct: 0.51, label: "Regency Retirement Residence of Clinton" },
-  "The Lodge at Whispering Pines": { pct: 0.51, label: "The Lodge at Whispering Pines" },
-  "Waupaca": { pct: 0.51, label: "Waupaca" },
-  "Whispering Pines": { pct: 0.51, label: "Whispering Pines" },
-  "Willow Lane": { pct: 0.51, label: "Willow Lane" },
+  "Arborcreek Apartments": { pct: 0.6786, label: "Arborcreek Apartments" },
+  "Arborview Court": { pct: 0.6786, label: "Arborview Court" },
+  "Arborwood Lodge": { pct: 0.6786, label: "Arborwood Lodge" },
+  "Camanche": { pct: 0.5742, label: "Camanche" },
+  "Legacy": { pct: 0.60, label: "Legacy (Waupaca Legacy)" },
+  "Legacy at Noel Manor": { pct: 0, label: "Legacy at Noel Manor" },
+  "Legacy of DeForest": { pct: 0.5314, label: "Legacy of DeForest" },
+  "Noel Manor": { pct: 0, label: "Noel Manor" },
+  "North Hill": { pct: 0.80, label: "North Hill" },
+  "Regency Retirement Residence of Clinton": { pct: 0, label: "Regency Retirement Residence of Clinton" },
+  "The Lodge at Whispering Pines": { pct: 0.6786, label: "The Lodge at Whispering Pines" },
+  "Waupaca": { pct: 0.8074, label: "Waupaca (Waubuck Seba)" },
+  "Whispering Pines": { pct: 0.6786, label: "Whispering Pines" },
+  "Willow Lane": { pct: 0.60, label: "Willow Lane" },
 };
 
 export function isJoePvBuilding(propertyName: string): boolean {
