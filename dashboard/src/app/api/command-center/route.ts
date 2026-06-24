@@ -209,7 +209,7 @@ export async function GET(request: NextRequest) {
     if (paramFrom && paramTo) {
       rangeFrom = paramFrom;
       rangeTo = paramTo;
-      basisLabel = period === "mtd" ? "MTD" : period === "qtd" ? "QTD" : period === "ytd" ? "YTD" : "Custom";
+      basisLabel = period === "mtd" ? "MTD" : period === "qtd" ? "QTD" : period === "ytd" ? "YTD" : period === "prevmo" ? "Prior Month" : "Custom";
     } else if (period === "mtd") {
       rangeFrom = firstOfMonth();
       rangeTo = today();
@@ -567,6 +567,7 @@ export async function GET(request: NextRequest) {
 
     return cachedJson({
       jrw: {
+        totalIncome: Math.round(jrwIncome),
         noi: Math.round(jrwNoi),
         netIncome: Math.round(jrwNetIncome),
         occupancyRate,

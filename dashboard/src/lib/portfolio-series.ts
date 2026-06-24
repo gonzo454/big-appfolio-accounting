@@ -103,7 +103,7 @@ export function lastCompleteMonthEnd(now = new Date()): string {
 
 export function monthsBack(count: number, now = new Date()): string[] {
   const out: string[] = [];
-  for (let i = count; i >= 0; i--) {
+  for (let i = count; i >= 1; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
   }
@@ -145,9 +145,7 @@ export async function buildPortfolioSeries(
 ): Promise<PortfolioSeries> {
   const months = monthsBack(monthCount);
   const fromDate = `${months[0]}-01`;
-  const now = new Date();
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const toDate = todayStr;
+  const toDate = lastCompleteMonthEnd();
 
   const pvPct = joeView ? getOwnership("Park Vista") : 1;
   const hotelPct = joeView ? getOwnership("Badger Hotel Group") : 1;
